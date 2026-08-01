@@ -39,6 +39,13 @@ def download(url: str, destination: Path) -> None:
         shutil.copyfileobj(response, output)
 
 
+def ensure_download(url: str, destination: Path, expected_sha256: str) -> None:
+    if destination.is_file() and sha256(destination) == expected_sha256:
+        print(f"using cached artifact: {destination}")
+        return
+    download(url, destination)
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -136,8 +143,8 @@ def main() -> int:
     binding_path = output_dir / release_tag / binding_name
 
     try:
-        download(archive_url, archive_path)
-        download(binding_url, binding_path)
+        ensure_download(archive_url, archive_path, manifest["archive_sha256"])
+        ensure_download(binding_url, binding_path, manifest["binding_sha256"])
     except urllib.error.HTTPError as exc:
         raise SystemExit(
             "failed to download fork-owned rusty_v8 Android artifacts; "

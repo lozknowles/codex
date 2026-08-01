@@ -87,6 +87,7 @@ Maintainer publish flow:
 - [Changelog](./CHANGELOG.md)
 - [Patch inventory](./patches/README.md)
 - [Building from source](./BUILDING.md)
+- [Build and install locally on Termux](./docs/install.md#one-command-build-and-install-from-source)
 - The 0.146.0 on-device validation summary is pending the release artifact and
   post-build device testing.
 - [Install docs](./docs/install.md)

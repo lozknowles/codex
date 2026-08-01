@@ -28,6 +28,25 @@ exact published version:
 CODEX_TERMUX_PACKAGE='@mmmbuto/codex-cli-termux@0.146.0' sh scripts/install-termux.sh
 ```
 
+### One-command build and install from source
+
+To compile the checkout on the Android device and make the npm wrapper use
+that newly compiled binary, run:
+
+```bash
+sh scripts/build-and-install-termux.sh
+```
+
+This installs missing Termux build tools, fetches the pinned and
+checksum-verified Android V8 artifacts, builds the CLI, stages the native
+binary plus `libc++_shared.so`, installs the local npm package globally, and
+verifies the installed `codex` wrapper. It uses a faster debug profile with
+debug information disabled. For a release build:
+
+```bash
+CODEX_BUILD_PROFILE=release sh scripts/build-and-install-termux.sh
+```
+
 ### Install directly from npm
 
 ```bash
@@ -78,7 +97,8 @@ Each release also publishes a `.sha256` checksum file for the npm tarball.
 
 ### Build from source
 
-For source builds and maintainer cross-build notes, see [BUILDING.md](../BUILDING.md).
+For the same device build command plus maintainer cross-build notes, see
+[BUILDING.md](../BUILDING.md).
 
 ## Logging
 

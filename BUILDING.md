@@ -14,19 +14,27 @@ npm install -g @mmmbuto/codex-cli-termux@latest
 On an ARM64 Termux device:
 
 ```bash
-pkg update && pkg upgrade -y
-pkg install git clang lld rust pkg-config openssl openssl-tool nodejs-lts -y
+sh scripts/build-and-install-termux.sh
+```
 
-git clone https://github.com/DioNanos/codex-termux.git
-cd codex-termux/codex-rs
-cargo build --release -p codex-cli
+This is the canonical single command for a usable local installation. It
+installs missing dependencies, fetches the pinned Android `rusty_v8` artifacts,
+compiles the CLI, stages the native binary and bundled C++ runtime into the
+npm-package layout, installs that package globally, and verifies the wrapper.
+It uses a fast debug build by default. Use the release profile when desired:
+
+```bash
+CODEX_BUILD_PROFILE=release sh scripts/build-and-install-termux.sh
 ```
 
 Expected outputs:
 
 ```bash
-codex-rs/target/release/codex
+codex-rs/target/debug/codex
 ```
+
+The installed `codex` command is the npm wrapper, which launches the staged
+`npm-package/bin/codex.bin`.
 
 ## Linux-host Android cross-build
 
