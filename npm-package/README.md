@@ -17,6 +17,11 @@ codex --version
 codex login
 ```
 
+The installed `codex` command is the tracked `bin/codex.js` wrapper. It launches
+the bundled `bin/codex.bin` native Android binary, sets `CODEX_SELF_EXE`, and
+keeps the bundled C++ runtime visible on Termux. The package also contains the
+shell launcher `bin/codex` for direct native use.
+
 ## Notes
 
 - Android 10+ / API 29+ on Termux ARM64 (the release binary is built for API 29)

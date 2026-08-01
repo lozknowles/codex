@@ -1,4 +1,4 @@
-## Installing Codex CLI for Termux
+# Installing Codex CLI for Termux
 
 This package is for Android Termux on ARM64 devices.
 
@@ -11,7 +11,24 @@ This package is for Android Termux on ARM64 devices.
 | Shell | Termux |
 | Node.js | 18+ |
 
-### Install from npm
+### One-command install from a clone
+
+The repository includes an installer for Termux. After cloning this repository,
+run:
+
+```bash
+sh scripts/install-termux.sh
+```
+
+The script installs Node.js if necessary, then installs the published Android
+ARM64 package globally with npm and verifies `codex --version`. To select an
+exact published version:
+
+```bash
+CODEX_TERMUX_PACKAGE='@mmmbuto/codex-cli-termux@0.146.0' sh scripts/install-termux.sh
+```
+
+### Install directly from npm
 
 ```bash
 pkg update && pkg upgrade -y
@@ -23,8 +40,29 @@ codex login
 
 The npm package includes one native Android ARM64 `codex` binary, `codex` and
 `codex-exec` launcher scripts, and the bundled `libc++_shared.so` runtime
-library. The `codex-exec` launcher dispatches the native binary's `exec`
-subcommand instead of duplicating the V8-linked ELF.
+library. The npm `codex` command points to `bin/codex.js`; that wrapper sets up
+the native runtime and launches `bin/codex.bin`. The package also includes the
+shell launcher at `bin/codex` for direct native invocation. The `codex-exec`
+launcher dispatches the native binary's `exec` subcommand instead of
+duplicating the V8-linked ELF.
+
+### What is in the repository?
+
+The wrapper and package metadata are tracked here:
+
+```text
+npm-package/bin/codex.js       npm entry-point wrapper
+npm-package/bin/codex          direct shell launcher
+npm-package/bin/codex-exec     direct exec launcher
+npm-package/package.json       npm command mapping
+```
+
+The large native files `npm-package/bin/codex.bin` and
+`npm-package/bin/libc++_shared.so` are generated release artifacts and are
+ignored in Git. The Android build workflow copies them into the package before
+creating the npm tarball. Therefore `npm install` is the normal end-user path;
+`npm install -g ./npm-package` is only valid after a native binary has been
+built and copied there as described in [BUILDING.md](../BUILDING.md).
 
 ### Install from a published GitHub release
 

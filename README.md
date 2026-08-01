@@ -22,6 +22,15 @@ codex --version
 codex login
 ```
 
+From a clone of this repository, the same setup can be run with one command:
+
+```bash
+sh scripts/install-termux.sh
+```
+
+The installer installs the published package, including the tracked wrapper
+and the release native binary.
+
 Requirements:
 
 - Android 10+ / API 29+ (the release binary is built with the API 29 NDK target)
