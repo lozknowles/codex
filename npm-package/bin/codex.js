@@ -37,22 +37,34 @@ env.LD_LIBRARY_PATH = sanitizeLdLibraryPath(binDir);
 const codexHome = env.CODEX_HOME || join(env.HOME || '', '.codex');
 
 function authLifecycleCommand(args) {
+  const optionsWithValues = new Set([
+    '-c',
+    '--config',
+    '-p',
+    '--profile',
+    '-m',
+    '--model',
+    '-C',
+    '--cd',
+    '--add-dir',
+    '--sandbox'
+  ]);
+
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--') {
       break;
     }
+    if (arg.startsWith('-')) {
+      if (optionsWithValues.has(arg)) {
+        index += 1;
+      }
+      continue;
+    }
     if (arg === 'login' || arg === 'logout') {
       return arg;
     }
-    if (
-      arg === '-c' ||
-      arg === '--config' ||
-      arg === '-p' ||
-      arg === '--profile'
-    ) {
-      index += 1;
-    }
+    return null;
   }
   return null;
 }
