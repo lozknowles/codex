@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -32,6 +33,68 @@ const binDir = __dirname;
 // the shell wrapper would lose the special argv[0] when it execs codex.bin.
 env.CODEX_SELF_EXE = nativeBinaryPath;
 env.LD_LIBRARY_PATH = sanitizeLdLibraryPath(binDir);
+
+const codexHome = env.CODEX_HOME || join(env.HOME || '', '.codex');
+
+function authLifecycleCommand(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--') {
+      break;
+    }
+    if (arg === 'login' || arg === 'logout') {
+      return arg;
+    }
+    if (
+      arg === '-c' ||
+      arg === '--config' ||
+      arg === '-p' ||
+      arg === '--profile'
+    ) {
+      index += 1;
+    }
+  }
+  return null;
+}
+
+function managedDaemonIsRunning() {
+  const pidPath = join(codexHome, 'app-server-daemon', 'app-server.pid');
+  try {
+    const { pid } = JSON.parse(readFileSync(pidPath, 'utf8'));
+    if (!Number.isInteger(pid) || pid <= 0) {
+      return false;
+    }
+    process.kill(pid, 0);
+    const commandLine = readFileSync(`/proc/${pid}/cmdline`, 'utf8');
+    return commandLine.includes('app-server');
+  } catch {
+    return false;
+  }
+}
+
+function reloadManagedDaemon() {
+  const helperPath = join(env.HOME || '', 'bin', 'codex-remote-start');
+  if (existsSync(helperPath)) {
+    const result = spawnSync(helperPath, [], { stdio: 'inherit', env });
+    return !result.error && result.status === 0;
+  }
+
+  const stop = spawnSync(binaryPath, ['remote-control', 'stop', '--json'], {
+    stdio: 'inherit',
+    env
+  });
+  if (stop.error) {
+    return false;
+  }
+  const start = spawnSync(binaryPath, ['remote-control', 'start', '--json'], {
+    stdio: 'inherit',
+    env
+  });
+  return !start.error && start.status === 0;
+}
+
+const authCommand = authLifecycleCommand(process.argv.slice(2));
+const daemonWasRunning = authCommand !== null && managedDaemonIsRunning();
 
 let cachedSubcommands;
 
@@ -116,5 +179,13 @@ child.on('exit', (code, signal) => {
     process.kill(process.pid, signal);
     return;
   }
-  process.exit(code ?? 1);
+  const exitCode = code ?? 1;
+  if (exitCode === 0 && daemonWasRunning) {
+    if (!reloadManagedDaemon()) {
+      console.error(
+        `Warning: ${authCommand} succeeded, but the managed app-server could not be reloaded.`
+      );
+    }
+  }
+  process.exit(exitCode);
 });
