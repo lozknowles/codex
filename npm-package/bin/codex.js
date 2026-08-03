@@ -69,19 +69,36 @@ function authLifecycleCommand(args) {
   return null;
 }
 
-function managedDaemonIsRunning() {
+function managedDaemonPid() {
   const pidPath = join(codexHome, 'app-server-daemon', 'app-server.pid');
   try {
     const { pid } = JSON.parse(readFileSync(pidPath, 'utf8'));
     if (!Number.isInteger(pid) || pid <= 0) {
-      return false;
+      return null;
     }
     process.kill(pid, 0);
     const commandLine = readFileSync(`/proc/${pid}/cmdline`, 'utf8');
-    return commandLine.includes('app-server');
+    return commandLine.includes('app-server') ? pid : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function managedDaemonIsRunning() {
+  return managedDaemonPid() !== null;
+}
+
+function waitForPidExit(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return true;
+    }
+    spawnSync('sleep', ['0.1']);
+  }
+  return false;
 }
 
 function reloadManagedDaemon() {
@@ -91,11 +108,7 @@ function reloadManagedDaemon() {
     return !result.error && result.status === 0;
   }
 
-  const stop = spawnSync(binaryPath, ['remote-control', 'stop', '--json'], {
-    stdio: 'inherit',
-    env
-  });
-  if (stop.error) {
+  if (!stopManagedDaemon()) {
     return false;
   }
   const start = spawnSync(binaryPath, ['remote-control', 'start', '--json'], {
@@ -103,6 +116,30 @@ function reloadManagedDaemon() {
     env
   });
   return !start.error && start.status === 0;
+}
+
+function stopManagedDaemon() {
+  const pid = managedDaemonPid();
+  if (pid === null) {
+    return true;
+  }
+
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    return !managedDaemonIsRunning();
+  }
+
+  if (waitForPidExit(pid, 5000)) {
+    return true;
+  }
+
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    // The process may have exited between the timeout and the second signal.
+  }
+  return waitForPidExit(pid, 1000);
 }
 
 const authCommand = authLifecycleCommand(process.argv.slice(2));
@@ -193,9 +230,12 @@ child.on('exit', (code, signal) => {
   }
   const exitCode = code ?? 1;
   if (exitCode === 0 && daemonWasRunning) {
-    if (!reloadManagedDaemon()) {
+    const daemonAction = authCommand === 'logout'
+      ? stopManagedDaemon
+      : reloadManagedDaemon;
+    if (!daemonAction()) {
       console.error(
-        `Warning: ${authCommand} succeeded, but the managed app-server could not be reloaded.`
+        `Warning: ${authCommand} succeeded, but the managed app-server could not be ${authCommand === 'logout' ? 'stopped' : 'reloaded'}.`
       );
     }
   }
