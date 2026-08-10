@@ -70,6 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cd codex-rs
           rustup target add "$CODEX_TERMUX_TARGET"
           rustc --version
 
@@ -156,7 +157,7 @@ jobs:
             echo "Target: $CODEX_TERMUX_TARGET"
             echo "Android API: $CODEX_TERMUX_ANDROID_API"
             echo "NDK: $CODEX_TERMUX_ANDROID_NDK_VERSION"
-            echo "Rust: $(rustc --version)"
+            echo "Rust: $(cd codex-rs && rustc --version)"
             echo "V8 version: $CODEX_TERMUX_RESOLVED_V8_VERSION"
             echo "V8 repository: $CODEX_TERMUX_RESOLVED_V8_REPOSITORY"
             echo "V8 release: $CODEX_TERMUX_RESOLVED_V8_RELEASE_TAG"
