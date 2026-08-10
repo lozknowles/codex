@@ -2,7 +2,11 @@
 
 set -eu
 
-PACKAGE_SPEC="${CODEX_TERMUX_PACKAGE:-@mmmbuto/codex-cli-termux@latest}"
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+export TERMUX_REPO_ROOT="$ROOT"
+# shellcheck disable=SC1091
+. "$ROOT/scripts/load-termux-env.sh"
+PACKAGE_SPEC="${CODEX_TERMUX_PACKAGE:-${CODEX_TERMUX_NPM_PACKAGE}@latest}"
 
 if [ "$(uname -m)" != "aarch64" ]; then
   echo "Codex for Termux requires an ARM64 device (uname -m must be aarch64)." >&2

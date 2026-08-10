@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import os
 import shlex
 import shutil
 import sys
@@ -128,8 +129,17 @@ def main() -> int:
                 f"invalid lowercase SHA-256 in manifest field {digest_field}: {digest}"
             )
 
-    release_tag = args.release_tag or manifest["release_tag"]
-    repository = manifest["repository"]
+    if args.release_tag and args.release_tag != manifest["release_tag"]:
+        raise SystemExit(
+            "--release-tag cannot replace the checksum-pinned manifest tag; "
+            "update and audit third_party/v8/android-artifacts.toml instead"
+        )
+    release_tag = manifest["release_tag"]
+    repository = os.environ.get("CODEX_TERMUX_V8_REPOSITORY", manifest["repository"])
+    if "/" not in repository or repository.startswith("/") or repository.endswith("/"):
+        raise SystemExit(
+            "CODEX_TERMUX_V8_REPOSITORY must use GitHub owner/repository syntax"
+        )
     output_dir = Path(args.output_dir).resolve()
 
     archive_name = f"librusty_v8_release_{args.target}.a.gz"

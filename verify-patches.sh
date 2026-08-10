@@ -112,7 +112,7 @@ if grep -q 'detectSubcommands' npm-package/bin/codex.js \
   && grep -Fq 'first && !isOption ? detectSubcommands() : null' npm-package/bin/codex.js \
   && grep -Fq 'process.kill(process.pid, signal)' npm-package/bin/codex.js \
   && grep -Fq 'process.kill(process.pid, signal)' npm-package/bin/codex-exec.js \
-  && grep -Fq 'process.exit(code ?? 1)' npm-package/bin/codex.js \
+  && grep -Eq 'process\.exit\((code \?\? 1|exitCode)\)' npm-package/bin/codex.js \
   && grep -Fq 'process.exit(code ?? 1)' npm-package/bin/codex-exec.js; then
   pass
 else

@@ -3,7 +3,10 @@
 set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-PROFILE="${CODEX_BUILD_PROFILE:-debug}"
+export TERMUX_REPO_ROOT="$ROOT"
+# shellcheck disable=SC1091
+. "$ROOT/scripts/load-termux-env.sh"
+PROFILE="${CODEX_BUILD_PROFILE:-${CODEX_TERMUX_BUILD_PROFILE:-debug}}"
 JOBS="${CARGO_BUILD_JOBS:-1}"
 
 if [ "$(uname -m)" != "aarch64" ]; then
@@ -81,7 +84,8 @@ chmod 0644 "$package_bin/libc++_shared.so"
 echo "Installing the local npm package and its Codex wrapper..."
 npm install --global "$ROOT/npm-package"
 
-global_package_root="$(npm root --global)/@mmmbuto/codex-cli-termux"
+package_name=$(node -p "require('$ROOT/npm-package/package.json').name")
+global_package_root="$(npm root --global)/$package_name"
 installed_binary="$global_package_root/bin/codex.bin"
 if [ ! -x "$installed_binary" ]; then
   echo "Installed package is missing its native binary: $installed_binary" >&2

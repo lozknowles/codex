@@ -1,5 +1,12 @@
 # Codex Termux
 
+> **Loz's Pixel 8 Pro build:** this branch includes an isolated GitHub Actions
+> workflow and direct Termux installer for running the local Codex CLI and TUI
+> without publishing an npm package. See
+> [`docs/pixel-8-pro-termux.md`](docs/pixel-8-pro-termux.md). All changes from
+> the inherited Termux branch are recorded in
+> [`TERMUX_CHANGES.md`](TERMUX_CHANGES.md).
+
 > Native Codex CLI for **Termux / Android ARM64**.
 > This fork tracks upstream OpenAI Codex main and carries only the Android/Termux compatibility delta needed to package and run it.
 
