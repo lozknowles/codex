@@ -43,6 +43,8 @@ the branch was created.
   local experimentation.
 - Produces a stripped direct-install tarball and a SHA-256 sidecar; no npm token
   or package publication is involved.
+- Enables vendored OpenSSL only for `aarch64-linux-android`, because Android
+  cross builds cannot use the Ubuntu runner's host OpenSSL installation.
 
 ## Installation safety
 
