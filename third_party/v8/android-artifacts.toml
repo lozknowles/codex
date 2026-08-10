@@ -1,0 +1,8 @@
+[versions."150.4.0"]
+source_tag = "v150.4.0"
+
+[versions."150.4.0".targets."aarch64-linux-android"]
+repository = "rebroad/rusty_v8"
+release_tag = "rusty-v8-v150.4.0"
+archive_sha256 = "060434296028923dace8f606ada5ac9d417d2d71cf75df098ef7caf4f422d9ee"
+binding_sha256 = "7727826ae479bdb645e807239fb12d1f8e2e23de7a6cf16f5ee592690d1d8506"

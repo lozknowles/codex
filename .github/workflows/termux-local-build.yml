@@ -1,0 +1,181 @@
+name: termux-local-build
+
+on:
+  push:
+    branches:
+      - agent/termux-phone-v150
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-pixel-arm64:
+    name: Build Pixel/Termux ARM64 bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CODEX_TERMUX_TARGET: ${{ vars.CODEX_TERMUX_TARGET }}
+      CODEX_TERMUX_ANDROID_API: ${{ vars.CODEX_TERMUX_ANDROID_API }}
+      CODEX_TERMUX_ANDROID_NDK_VERSION: ${{ vars.CODEX_TERMUX_ANDROID_NDK_VERSION }}
+      CODEX_TERMUX_BUILD_PROFILE: ${{ vars.CODEX_TERMUX_BUILD_PROFILE }}
+      CODEX_TERMUX_ARTIFACT_RETENTION_DAYS: ${{ vars.CODEX_TERMUX_ARTIFACT_RETENTION_DAYS }}
+      CODEX_TERMUX_INSTALL_DIR_NAME: ${{ vars.CODEX_TERMUX_INSTALL_DIR_NAME }}
+      CODEX_TERMUX_V8_REPOSITORY: ${{ vars.CODEX_TERMUX_V8_REPOSITORY }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Load and validate Termux environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERMUX_REPO_ROOT="$GITHUB_WORKSPACE"
+          source scripts/load-termux-env.sh
+          test "$CODEX_TERMUX_TARGET" = aarch64-linux-android
+          test "$CODEX_TERMUX_BUILD_PROFILE" = release
+          {
+            echo "CODEX_TERMUX_TARGET=$CODEX_TERMUX_TARGET"
+            echo "CODEX_TERMUX_ANDROID_API=$CODEX_TERMUX_ANDROID_API"
+            echo "CODEX_TERMUX_ANDROID_CLANG_TARGET=$CODEX_TERMUX_ANDROID_CLANG_TARGET"
+            echo "CODEX_TERMUX_ANDROID_NDK_VERSION=$CODEX_TERMUX_ANDROID_NDK_VERSION"
+            echo "CODEX_TERMUX_BUILD_PROFILE=$CODEX_TERMUX_BUILD_PROFILE"
+            echo "CODEX_TERMUX_ARTIFACT_RETENTION_DAYS=$CODEX_TERMUX_ARTIFACT_RETENTION_DAYS"
+            echo "CODEX_TERMUX_INSTALL_DIR_NAME=$CODEX_TERMUX_INSTALL_DIR_NAME"
+            echo "CODEX_TERMUX_V8_REPOSITORY=$CODEX_TERMUX_V8_REPOSITORY"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify source revision and delivery scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          sh scripts/test-termux-local-delivery.sh
+
+      - name: Install host dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake make ninja-build perl pkg-config libssl-dev protobuf-compiler
+
+      - name: Install Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add "$CODEX_TERMUX_TARGET"
+          rustc --version
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?ANDROID_HOME must be set on the GitHub runner}"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/bin:$PATH"
+          command -v sdkmanager
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "ndk;$CODEX_TERMUX_ANDROID_NDK_VERSION"
+          ndk_home="$ANDROID_HOME/ndk/$CODEX_TERMUX_ANDROID_NDK_VERSION"
+          test -d "$ndk_home"
+          echo "ANDROID_NDK_HOME=$ndk_home" >> "$GITHUB_ENV"
+
+      - name: Build native Codex CLI and TUI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          toolchain_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export PATH="$toolchain_bin:$PATH"
+          export LIBLZMA_NO_PKG_CONFIG=1
+          export OPENSSL_NO_PKG_CONFIG=1
+          export PKG_CONFIG_ALLOW_CROSS=1
+
+          eval "$(python3 scripts/fetch_rusty_v8_android.py | sed -n '/^export /p')"
+          export RUSTY_V8_ARCHIVE RUSTY_V8_SRC_BINDING_PATH
+          export CODEX_TERMUX_RESOLVED_V8_VERSION
+          export CODEX_TERMUX_RESOLVED_V8_REPOSITORY
+          export CODEX_TERMUX_RESOLVED_V8_RELEASE_TAG
+          {
+            echo "RUSTY_V8_ARCHIVE=$RUSTY_V8_ARCHIVE"
+            echo "RUSTY_V8_SRC_BINDING_PATH=$RUSTY_V8_SRC_BINDING_PATH"
+            echo "CODEX_TERMUX_RESOLVED_V8_VERSION=$CODEX_TERMUX_RESOLVED_V8_VERSION"
+            echo "CODEX_TERMUX_RESOLVED_V8_REPOSITORY=$CODEX_TERMUX_RESOLVED_V8_REPOSITORY"
+            echo "CODEX_TERMUX_RESOLVED_V8_RELEASE_TAG=$CODEX_TERMUX_RESOLVED_V8_RELEASE_TAG"
+          } >> "$GITHUB_ENV"
+
+          target_key=${CODEX_TERMUX_TARGET//-/_}
+          export "CC_${target_key}=$CODEX_TERMUX_ANDROID_CLANG_TARGET-clang"
+          export "CXX_${target_key}=$CODEX_TERMUX_ANDROID_CLANG_TARGET-clang++"
+          export "AR_${target_key}=llvm-ar"
+          export "RANLIB_${target_key}=llvm-ranlib"
+          export "CARGO_TARGET_${target_key^^}_LINKER=$CODEX_TERMUX_ANDROID_CLANG_TARGET-clang"
+
+          builtins=$(find "$toolchain_bin/.." \
+            -name 'libclang_rt.builtins-aarch64-android.a' -print -quit 2>/dev/null)
+          test -n "$builtins"
+          rustflags_key="CARGO_TARGET_${target_key^^}_RUSTFLAGS"
+          export "$rustflags_key=-Clink-arg=-lc++_shared -Clink-arg=-Wl,-rpath,\$ORIGIN -Clink-arg=$builtins"
+
+          cd codex-rs
+          cargo build --locked --target "$CODEX_TERMUX_TARGET" \
+            --profile "$CODEX_TERMUX_BUILD_PROFILE" -p codex-cli
+
+      - name: Stage direct Termux install bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_name="codex-termux-pixel-arm64-${GITHUB_SHA::12}"
+          stage="dist/$bundle_name"
+          mkdir -p "$stage/bin"
+
+          cp "codex-rs/target/$CODEX_TERMUX_TARGET/$CODEX_TERMUX_BUILD_PROFILE/codex" "$stage/bin/codex.bin"
+          cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
+            "$stage/bin/libc++_shared.so"
+          cp scripts/termux-local-launcher.sh "$stage/bin/codex"
+          cp scripts/install-local-termux-bundle.sh "$stage/install.sh"
+          cp scripts/uninstall-local-termux.sh "$stage/uninstall.sh"
+          cp scripts/rollback-local-termux.sh "$stage/rollback.sh"
+          cp LICENSE NOTICE "$stage/"
+
+          export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          llvm-strip --strip-all "$stage/bin/codex.bin" "$stage/bin/libc++_shared.so"
+          chmod 0755 "$stage/bin/codex" "$stage/bin/codex.bin" \
+            "$stage/install.sh" "$stage/uninstall.sh" "$stage/rollback.sh"
+          chmod 0644 "$stage/bin/libc++_shared.so" "$stage/LICENSE" "$stage/NOTICE"
+
+          {
+            echo "Repository: $GITHUB_REPOSITORY"
+            echo "Commit: $GITHUB_SHA"
+            echo "Target: $CODEX_TERMUX_TARGET"
+            echo "Android API: $CODEX_TERMUX_ANDROID_API"
+            echo "NDK: $CODEX_TERMUX_ANDROID_NDK_VERSION"
+            echo "Rust: $(rustc --version)"
+            echo "V8 version: $CODEX_TERMUX_RESOLVED_V8_VERSION"
+            echo "V8 repository: $CODEX_TERMUX_RESOLVED_V8_REPOSITORY"
+            echo "V8 release: $CODEX_TERMUX_RESOLVED_V8_RELEASE_TAG"
+            echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$stage/BUILD-INFO.txt"
+
+          tar -C dist -czf "dist/$bundle_name.tar.gz" "$bundle_name"
+          sha256sum "dist/$bundle_name.tar.gz" > "dist/$bundle_name.tar.gz.sha256"
+          echo "TERMUX_BUNDLE_NAME=$bundle_name" >> "$GITHUB_ENV"
+          echo "TERMUX_BUNDLE_PATH=dist/$bundle_name.tar.gz" >> "$GITHUB_ENV"
+          echo "TERMUX_BUNDLE_SHA_PATH=dist/$bundle_name.tar.gz.sha256" >> "$GITHUB_ENV"
+          ls -lh "dist/$bundle_name.tar.gz" "dist/$bundle_name.tar.gz.sha256"
+
+      - name: Upload Pixel/Termux bundle
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ${{ env.TERMUX_BUNDLE_NAME }}
+          path: |
+            ${{ env.TERMUX_BUNDLE_PATH }}
+            ${{ env.TERMUX_BUNDLE_SHA_PATH }}
+          if-no-files-found: error
+          retention-days: ${{ fromJSON(env.CODEX_TERMUX_ARTIFACT_RETENTION_DAYS) }}

@@ -9,6 +9,10 @@ If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="http
 
 ---
 
+This fork also provides an isolated, checksum-pinned Android ARM64 build for
+the native Codex CLI and TUI on Termux. See [Pixel 8 Pro / Termux](PIXEL_TERMUX.md)
+and the [change record](TERMUX_CHANGES.md).
+
 ## Quickstart
 
 ### Installing and running Codex CLI
