@@ -13,6 +13,9 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+#[cfg(target_os = "android")]
+mod android_tls_alignment;
+
 const OTEL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(/*secs*/ 5);
 
 #[derive(Debug, Parser)]
