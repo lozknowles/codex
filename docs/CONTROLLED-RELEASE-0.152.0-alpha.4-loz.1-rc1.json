@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "release": "0.152.0-alpha.4-loz.1-rc1",
+  "status": "RELEASE_CANDIDATE",
+  "upstream": {
+    "repository": "https://github.com/openai/codex",
+    "version": "0.152.0-alpha.4",
+    "sha": "7ac2dff554323b17d5f622b7aca236ca75c93259"
+  },
+  "reference_only": {
+    "repository": "https://github.com/rebroad/codex",
+    "branch": "alpha",
+    "sha": "a1428ff0f813d508a22c505aa01310515c434116"
+  },
+  "integration": {
+    "branch": "semantic/integration-0.152",
+    "semantic_commits": ["e9d1e73ed", "17162e93d"],
+    "runtime_files": 4,
+    "runtime_insertions": 23,
+    "runtime_deletions": 0,
+    "tooling_files": 10,
+    "tooling_insertions": 1874,
+    "tooling_deletions": 0
+  },
+  "qualification": {
+    "git_diff_check": "PASS",
+    "node_syntax": "PASS",
+    "cargo_check": "BLOCKED_CARGO_UNAVAILABLE",
+    "tests": "NOT_RUN",
+    "desktop_build": "BLOCKED_CARGO_UNAVAILABLE",
+    "windows": "NOT_RUN",
+    "pixel_termux": "PRESERVED_NOT_RETESTED",
+    "artifact": "NOT_GENERATED",
+    "sha256": null,
+    "rollback": "READY_BY_BRANCH_AND_TAG_POLICY_ONLY"
+  },
+  "safety": {
+    "force_push": false,
+    "upstream_modified": false,
+    "package_registry_published": false,
+    "installed_codex_replaced": false,
+    "credentials_committed": false
+  }
+}

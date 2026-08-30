@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "distribution": "lozknowles/codex",
+  "status": "release-candidate-not-fully-qualified",
+  "remotes": {
+    "origin": "https://github.com/lozknowles/codex.git",
+    "rebroad": "https://github.com/rebroad/codex.git",
+    "openai": "https://github.com/openai/codex.git"
+  },
+  "base": {
+    "remote": "openai",
+    "ref": "latest-alpha-cli",
+    "sha": "7ac2dff554323b17d5f622b7aca236ca75c93259",
+    "version": "0.152.0-alpha.4"
+  },
+  "upstream_context": {
+    "ref": "rebroad/alpha",
+    "sha": "a1428ff0f813d508a22c505aa01310515c434116",
+    "version": "0.149.0-alpha.7.2"
+  },
+  "refs": {
+    "rebroad_tracking": "rebroad-track/20260830-alpha",
+    "controlled_base": "semantic/integration-0.152"
+  },
+  "qualification": {
+    "build": "blocked-cargo-unavailable",
+    "tests": "not-run",
+    "smoke": "not-run",
+    "published": false
+  }
+}

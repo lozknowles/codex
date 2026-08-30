@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "rebroad": {
+    "branch": "alpha",
+    "version": "0.149.0-alpha.7.2",
+    "sha": "a1428ff0f813d508a22c505aa01310515c434116"
+  },
+  "openai": {
+    "ref": "latest-alpha-cli",
+    "version": "0.152.0-alpha.4",
+    "sha": "7ac2dff554323b17d5f622b7aca236ca75c93259"
+  },
+  "historical_delta": {
+    "commits": 378,
+    "files": 440,
+    "insertions": 18432,
+    "deletions": 2564,
+    "touched_lines": 20996
+  },
+  "capabilities": [
+    {"name":"android-termux","classification":"FORWARD_PORT","rebroad_files":"Android build, sandbox, Termux scripts","owned_files":4,"new_files":2,"estimated_loc":"1000-3000","actual_loc":23,"risk":"LOW","dependencies":["android-target","toolchain"],"test_status":"NOT_RUN","branch":"capability/android-termux-0.152","commit":"6bc17b2fb"},
+    {"name":"tls-certificate-behavior","classification":"FORWARD_PORT","rebroad_files":"cli/src/android_tls_alignment.rs; code-mode-host/src/android_tls_alignment.rs","owned_files":4,"new_files":2,"estimated_loc":"23","actual_loc":23,"risk":"LOW","dependencies":["android-target"],"test_status":"NOT_RUN","branch":"capability/android-termux-0.152","commit":"6bc17b2fb"},
+    {"name":"remote-control","classification":"REDESIGN","rebroad_files":"app-server-transport remote_control; CLI","owned_files":"8-20","new_files":"2-8","estimated_loc":"500-1500","actual_loc":null,"risk":"VERY_HIGH","dependencies":["pairing","reconnection"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"pairing","classification":"REDESIGN","rebroad_files":"pairing and enrollment tests","owned_files":"6-15","new_files":"1-5","estimated_loc":"300-800","actual_loc":null,"risk":"HIGH","dependencies":["remote-control"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"app-server-reconnection","classification":"REDESIGN","rebroad_files":"reconnect handoff and stale socket recovery","owned_files":"8-20","new_files":"1-5","estimated_loc":"300-1000","actual_loc":null,"risk":"VERY_HIGH","dependencies":["remote-control","tui"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"providers-models","classification":"REDESIGN","rebroad_files":"model-provider and config changes","owned_files":"8-20","new_files":"1-5","estimated_loc":"200-800","actual_loc":null,"risk":"HIGH","dependencies":["model-metadata"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"effective-model-attribution","classification":"UPSTREAM_NOW","rebroad_files":"response usage metadata","owned_files":0,"new_files":0,"estimated_loc":"0","actual_loc":0,"risk":"LOW","dependencies":[],"test_status":"UPSTREAM_VERIFIED_SOURCE_ONLY","branch":null,"commit":null},
+    {"name":"token-accounting","classification":"UPSTREAM_NOW","rebroad_files":"usage replay and response usage","owned_files":0,"new_files":0,"estimated_loc":"0","actual_loc":0,"risk":"LOW","dependencies":[],"test_status":"UPSTREAM_VERIFIED_SOURCE_ONLY","branch":null,"commit":null},
+    {"name":"cost-accounting","classification":"REDESIGN","rebroad_files":"turn_cost_worker and pricing docs","owned_files":"5-15","new_files":"1-4","estimated_loc":"200-700","actual_loc":null,"risk":"HIGH","dependencies":["token-accounting"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"account-usage-rate-limits","classification":"UPSTREAM_NOW","rebroad_files":"account protocol and TUI","owned_files":0,"new_files":0,"estimated_loc":"0","actual_loc":0,"risk":"LOW","dependencies":[],"test_status":"UPSTREAM_VERIFIED_SOURCE_ONLY","branch":null,"commit":null},
+    {"name":"cache-behavior","classification":"UPSTREAM_NOW","rebroad_files":"model/plugin/prompt cache","owned_files":0,"new_files":0,"estimated_loc":"0","actual_loc":0,"risk":"LOW","dependencies":[],"test_status":"UPSTREAM_VERIFIED_SOURCE_ONLY","branch":null,"commit":null},
+    {"name":"prompt-changes","classification":"REDESIGN","rebroad_files":"guardian, goals, skills, prompt-cache assets","owned_files":"5-15","new_files":"1-5","estimated_loc":"100-600","actual_loc":null,"risk":"HIGH","dependencies":["cache","runtime"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"tui-recovery","classification":"REDESIGN","rebroad_files":"wake, resume, takeover, reconnect","owned_files":"10-30","new_files":"2-8","estimated_loc":"500-2000","actual_loc":null,"risk":"HIGH","dependencies":["app-server"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"sandbox-runtime","classification":"REDESIGN","rebroad_files":"Android fallback and sandbox hardening","owned_files":"8-20","new_files":"1-5","estimated_loc":"300-1200","actual_loc":null,"risk":"VERY_HIGH","dependencies":["platform-targets"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"cancellation-recovery","classification":"UNKNOWN","rebroad_files":"duplicate rollout repair and turn recovery","owned_files":"5-15","new_files":"1-4","estimated_loc":"200-700","actual_loc":null,"risk":"HIGH","dependencies":["state","tui"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"installer-update","classification":"REDESIGN","rebroad_files":"fork release aliases and PATH/npm behavior","owned_files":"5-15","new_files":"1-5","estimated_loc":"300-1000","actual_loc":null,"risk":"HIGH","dependencies":["release-metadata"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"release-package-workflows","classification":"REDESIGN","rebroad_files":"fork release workflows and package assembly","owned_files":"10-30","new_files":"5-15","estimated_loc":"500-2000","actual_loc":null,"risk":"VERY_HIGH","dependencies":["installer","CI"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"rusty-v8-toolchain","classification":"REDESIGN","rebroad_files":"Rusty V8 artifacts and Android/ARMv7 resolver","owned_files":"10-30","new_files":"3-10","estimated_loc":"500-2000","actual_loc":null,"risk":"VERY_HIGH","dependencies":["build","release"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"build-reproducibility","classification":"REDESIGN","rebroad_files":"cache isolation and target scripts","owned_files":"8-20","new_files":"2-8","estimated_loc":"300-1000","actual_loc":null,"risk":"HIGH","dependencies":["toolchain"],"test_status":"NOT_RUN","branch":null,"commit":null},
+    {"name":"qualification-recovery-tooling","classification":"FORWARD_PORT","rebroad_files":"tools/rollout-inspector","owned_files":10,"new_files":10,"estimated_loc":"1874","actual_loc":1874,"risk":"LOW","dependencies":["release-process"],"test_status":"NOT_RUN","branch":"capability/qualification-rollout-inspector-0.152","commit":"80dcb05cba48b2f877c23508a485e523d772f667"}
+  ],
+  "surviving_estimate": {
+    "owned_capability_groups": "7-10",
+    "openai_files_affected": "40-80",
+    "new_files": "8-15",
+    "loc_range": "2000-6000",
+    "confidence": "medium-low"
+  },
+  "prototype": {
+    "branch": "experiment/semantic-rebase-0.152",
+    "commit": "6bc17b2fb",
+    "capability": "android_tls_alignment",
+    "files": 4,
+    "added_loc": 23,
+    "diff_check": "passed",
+    "build": "not-run-cargo-unavailable",
+    "qualified": false
+  },
+  "integration_candidate": {
+    "branch": "semantic/integration-0.152",
+    "source_sha": "7ac2dff554323b17d5f622b7aca236ca75c93259",
+    "version": "0.152.0-alpha.4-loz.1-rc1",
+    "runtime": {"files": 4, "insertions": 23, "deletions": 0, "status": "UNQUALIFIED"},
+    "tooling": {"files": 10, "insertions": 1874, "deletions": 0, "status": "UNQUALIFIED"},
+    "pixel_termux": "PRESERVED_NOT_RETESTED",
+    "git_diff_check": "PASS",
+    "node_syntax": "PASS",
+    "cargo_rust": "BLOCKED_UNAVAILABLE",
+    "artifact": "NOT_GENERATED",
+    "published_as": "RELEASE_CANDIDATE_ONLY"
+  },
+  "remote_reconnect_viability": {
+    "classification": "UPSTREAM_SUFFICIENT_WITH_REDESIGN_FOR_REMAINDER",
+    "branch": "experiment/remote-reconnect-semantic-0.152",
+    "base_sha": "7ac2dff554323b17d5f622b7aca236ca75c93259",
+    "prototype_result": "STOPPED_AT_DESIGN_GATE",
+    "upstream_core": ["pairing", "enrollment", "authenticated_transport", "daemon_lifecycle", "session_reconnect", "generation_ids"],
+    "remaining_behavior": ["stale_socket_recovery", "expired_enrollment_recovery", "bounded_pairing_retry", "android_startup_handling", "optional_redacted_traffic_capture"],
+    "comparison": {"files": 22, "insertions": 1932, "deletions": 212},
+    "runtime_estimate": "500-1500",
+    "test_estimate": "300-900",
+    "security": "preserve_openai_authenticated_boundary; local-only opt-in redacted diagnostics",
+    "test_status": "NOT_RUN",
+    "recommendation": "YES_WITH_REDESIGN"
+  },
+  "infrastructure_viability": {
+    "experiment_branch": "experiment/build-release-termux-semantic-0.152",
+    "baseline_sha": "7ac2dff554323b17d5f622b7aca236ca75c93259",
+    "prototype": "NONE_DESIGN_STOP",
+    "toolchain": {"node": "24.19.0", "pnpm": "11.19.0", "python": "3.12.13", "cargo": "unavailable", "rustc": "unavailable"},
+    "platforms": {
+      "linux-x86_64": {"build":"REQUIRED","package":"REQUIRED","install":"REQUIRED","run":"REQUIRED","update":"REQUIRED","rollback":"REQUIRED"},
+      "windows-x86_64": {"build":"REQUIRED","package":"REQUIRED","install":"REQUIRED","run":"REQUIRED","update":"REQUIRED","rollback":"REQUIRED"},
+      "android-termux-arm64": {"build":"REQUIRED_IF_RETAINED","package":"REQUIRED_IF_RETAINED","install":"REQUIRED_IF_RETAINED","run":"REQUIRED_IF_RETAINED","update":"REQUIRED_IF_RETAINED","rollback":"REQUIRED_IF_RETAINED"},
+      "macos-x64-arm64": {"build":"OPTIONAL","package":"OPTIONAL","install":"OPTIONAL","run":"OPTIONAL","update":"OPTIONAL","rollback":"OPTIONAL"}
+    },
+    "records": [
+      {"name":"android-termux-runtime","classification":"PARTIALLY_UPSTREAM","requirement":"run Codex on Termux/Android arm64","upstream_status":"desktop portability upstream; Android target unproven","historical_rebroad_scope":"Android cfgs, TLS, sandbox, process and startup fixes","owned_runtime_files":"2-10","owned_tooling_files":"0-10","estimated_loc":"100-2000","actual_loc":0,"dependencies":["android-target","toolchain","rusty-v8"],"risk":"HIGH","test_status":"BLOCKED","branch":null,"commit":null,"recommendation":"qualify a real Android builder before porting"},
+      {"name":"rusty-v8-toolchain","classification":"BUILD_CONFIGURATION_ONLY","requirement":"obtain compatible native V8 artifacts","upstream_status":"Rusty V8 resolver, patches, and workflows already exist","historical_rebroad_scope":"Android/ARMv7 artifacts, checksums, resolver and CI","owned_runtime_files":0,"owned_tooling_files":"0-10","estimated_loc":"0-500","actual_loc":0,"dependencies":["android-target"],"risk":"HIGH","test_status":"BLOCKED","branch":null,"commit":null,"recommendation":"do not copy until Android artifact need is proven"},
+      {"name":"build-system","classification":"PARTIALLY_UPSTREAM","requirement":"reproducible controlled builds","upstream_status":"Cargo, Bazel, lockfiles, and build-info exist","historical_rebroad_scope":"shared Cargo environment, target isolation and cross-build scripts","owned_runtime_files":0,"owned_tooling_files":"0-500","estimated_loc":"0-500","actual_loc":0,"dependencies":["toolchain"],"risk":"MEDIUM","test_status":"BLOCKED","branch":null,"commit":null,"recommendation":"reuse upstream build system"},
+      {"name":"installer-update","classification":"PARTIALLY_UPSTREAM","requirement":"explicit install/update/rollback","upstream_status":"npm installer and update loop exist for desktop packages","historical_rebroad_scope":"fork aliases, PATH selection, profile and release recovery","owned_runtime_files":"0-5","owned_tooling_files":"0-300","estimated_loc":"0-500","actual_loc":0,"dependencies":["release-packaging"],"risk":"MEDIUM","test_status":"BLOCKED","branch":null,"commit":null,"recommendation":"use versioned artifacts and current pointer"},
+      {"name":"release-packaging","classification":"ALREADY_UPSTREAM","requirement":"desktop artifact packaging","upstream_status":"npm platform package matrix and build script exist","historical_rebroad_scope":"fork package identity and release workflows","owned_runtime_files":0,"owned_tooling_files":0,"estimated_loc":"0","actual_loc":0,"dependencies":[],"risk":"LOW","test_status":"SOURCE_ONLY","branch":null,"commit":null,"recommendation":"adapt metadata only when publishing is authorized"},
+      {"name":"build-reproducibility","classification":"PARTIALLY_UPSTREAM","requirement":"prove exact source/toolchain/artifact identity","upstream_status":"lockfiles and executable build-info exist","historical_rebroad_scope":"cache isolation, checksums, version stamping, artifact audits","owned_runtime_files":0,"owned_tooling_files":"0-300","estimated_loc":"0-300","actual_loc":0,"dependencies":["build-system"],"risk":"MEDIUM","test_status":"BLOCKED","branch":null,"commit":null,"recommendation":"record SHA, lockfiles, toolchain, checksums and retain prior artifact"}
+    ],
+    "footprint": {"runtime_portability":"LOW_DESKTOP_LIKELY_ANDROID","build_tooling":"LOW_DESKTOP_LIKELY_ANDROID","packaging_install_update":"LOW_DESKTOP_LIKELY_ANDROID","ci_test_qualification":"MODERATE"},
+    "recommendation":"YES_WITH_REDESIGN"
+  },
+  "decision": "SEMANTIC REBASE PROBABLY BETTER",
+  "profiles": {
+    "minimal": {"loc": "300-1200", "risk": "moderate"},
+    "practical": {"loc": "2000-6000", "risk": "moderate-high"},
+    "full_surviving": {"loc": "8000-20000", "risk": "high"}
+  }
+}
