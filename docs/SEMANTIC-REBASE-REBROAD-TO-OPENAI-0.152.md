@@ -456,3 +456,22 @@ Focused Rust tests remain **BLOCKED** by the Pixel offline cache lacking the
 resume passed, but network-interruption reconnect and full desktop/Windows
 qualification remain incomplete. This is **PARTIALLY_QUALIFIED**, not a stable
 release.
+
+### Final Pixel and Agent Control qualification attempt: 2026-09-01
+
+The missing `assert_matches` dependency was subsequently resolved through the
+normal Cargo mechanism on the Pixel. The focused thread-store writer-lock test
+passed (1/1), as did the focused app-server startup-lock test (1/1). The
+installation-ID test and broader suite did not produce test summaries: the
+Pixel became unresponsive during the final link, and the broader run also hit
+`No space left on device`. Only the disposable Android Cargo target cache was
+removed to recover space; installed Codex files were preserved.
+
+Agent Control branch `feature/android-adb-pairing-helper-20260831` at
+`b45d7b96c95ed539ada10f49ba0b68ecaf19d6e6` passed its isolated automated suite
+(521/521). This does not establish physical ADB connection or Agent Control to
+native Codex control: the established Termux ADB path remains unavailable and
+pairing/package installation was not performed. Live network interruption,
+Linux regression, and Windows regression were not qualified. The candidate
+therefore remains **PARTIALLY_QUALIFIED**, with Agent Control
+**READY_WITH_LIMITATIONS** at the helper/code-test level and no release tag.

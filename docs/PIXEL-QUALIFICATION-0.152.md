@@ -208,3 +208,39 @@ were exercised successfully, but disconnect/reconnect across a live network
 interruption, native Android TLS beyond the authenticated execution path, and
 full desktop qualification remain incomplete. Status is
 **PARTIALLY_QUALIFIED**; no stable release tag is justified.
+
+## Final qualification attempt: 2026-09-01
+
+The candidate branch remained clean at `761a1a65288198c570b297c490c96bd2544d36b4`,
+with source fixes through `5db8949c1`. The active Termux installation remained
+`codex-cli 0.146.0` (SHA256
+`246a18629639a648b45949cd2c5d6177640de71f2e176364a62620fed52de0fd`) and was
+not modified.
+
+The missing `assert_matches` dependency was resolved through the normal Cargo
+network mechanism on the Pixel. The focused `codex-thread-store` writer-lock
+test passed (1 passed, 0 failed), and the focused app-server startup-lock test
+passed (1 passed, 0 failed). The installation-ID focused test could not reach a
+test summary: after compiling the workspace test harness, the Pixel became
+unresponsive over SSH during the final link and the process was stopped. A
+broader thread-store test run was also stopped by `No space left on device`
+while compiling `codex-app-server-protocol`; the disposable Cargo target cache
+was then removed to recover 23 GB, without touching either installed Codex.
+
+The existing Agent Control branch `feature/android-adb-pairing-helper-20260831`
+was tested in an isolated worktree at `b45d7b96c95ed539ada10f49ba0b68ecaf19d6e6`:
+521 tests passed, 0 failed. This is code-level evidence only. Physical ADB
+connection and Agent Control-to-Codex end-to-end control were not run because
+the established evidence still has no usable Termux ADB device path and no
+safe pairing/install operation was authorized. Live network interruption and
+resume were likewise not run. Windows and Linux regression gates remain
+blocked because no Rust/Cargo toolchain is available on the available Windows
+or hpubuntu hosts.
+
+Final status remains **PARTIALLY_QUALIFIED**. The Pixel runtime path is
+qualified for build, launch, shell interaction, persisted session creation, and
+same-session `codex exec resume`; it is not a cross-platform or reconnect
+release qualification. Agent Control integration is **READY_WITH_LIMITATIONS**
+at the governed-helper/code-test level, but **NOT_READY** for physical
+end-to-end ADB/Codex acceptance. No release tag or `origin/main` update is
+justified.

@@ -124,6 +124,17 @@
     "cargo_check_protocol_core": "PASS",
     "cargo_check_workspace": "PASS_WITH_VERIFIED_V8_OVERRIDE",
     "focused_protocol_test": "PASS_37_PASSED_0_FAILED",
+    "focused_android_lock_tests": {
+      "thread_store_writer_lock": "PASS_1_PASSED_0_FAILED",
+      "app_server_startup_lock": "PASS_1_PASSED_0_FAILED",
+      "installation_id": "BLOCKED_PIXEL_UNRESPONSIVE_DURING_FINAL_LINK",
+      "dependency_resolution": "PASS_ASSERT_MATCHES_FETCHED_NORMALLY"
+    },
+    "broader_android_lock_tests": "BLOCKED_NO_SPACE_LEFT_ON_DEVICE",
+    "agent_control_adb_branch": "feature/android-adb-pairing-helper-20260831",
+    "agent_control_adb_commit": "b45d7b96c95ed539ada10f49ba0b68ecaf19d6e6",
+    "agent_control_automated_tests": "PASS_521_PASSED_0_FAILED",
+    "agent_control_physical_pixel": "NOT_RUN_NO_USABLE_TERMUX_ADB_PATH",
     "build_configuration_fix": "codex-rs/code-mode-protocol/build.rs uses Termux PATH protoc on Android",
     "rusty_v8": "VERIFIED_TEMPORARY_QUALIFICATION_INPUT_NOT_CONTROLLED_RELEASE_ARTIFACT",
     "rusty_v8_requested_artifact": "librusty_v8_ptrcomp_sandbox_release_aarch64-linux-android.a.gz",
@@ -154,7 +165,7 @@
       {"branch":"agent/termux-phone","sha":"893dc78ec627b6f1b20df9ccd787d728ef320274","actions_run":"31421824409"},
       {"branch":"agent/termux-phone-v150","sha":"8b364ca371d2b3c82093806c7e72a8c53f6d90c6","actions_run":"31433637048"}
     ],
-    "reason": "Port-8022 authentication was restored. Three narrow Unix flock compatibility fixes repaired app-server startup, installation-ID initialization, and thread-store persistence on Android. The rebuilt candidate passed version/help, ephemeral execution, persisted session creation, and codex exec resume. Focused Rust tests were blocked by an uncached assert_matches dev dependency; desktop, Windows, live network interruption, and full Android TLS qualification remain incomplete."
+    "reason": "Port-8022 authentication was restored. Three narrow Unix flock compatibility fixes repaired app-server startup, installation-ID initialization, and thread-store persistence on Android. The rebuilt candidate passed version/help, ephemeral execution, persisted session creation, and codex exec resume. Two focused lock tests passed after normal Cargo dependency resolution; the installation-ID test and broader suite were blocked by Pixel resource/unresponsiveness. Desktop, Windows, live network interruption, and physical Agent Control-to-Codex qualification remain incomplete."
   },
   "decision": "SEMANTIC REBASE PROBABLY BETTER",
   "profiles": {
