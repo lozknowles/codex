@@ -105,6 +105,33 @@
     "footprint": {"runtime_portability":"LOW_DESKTOP_LIKELY_ANDROID","build_tooling":"LOW_DESKTOP_LIKELY_ANDROID","packaging_install_update":"LOW_DESKTOP_LIKELY_ANDROID","ci_test_qualification":"MODERATE"},
     "recommendation":"YES_WITH_REDESIGN"
   },
+  "pixel_qualification": {
+    "architecture": "NATIVE_TERMUX",
+    "status": "PRESERVED_NOT_RETESTED",
+    "verdict": "BLOCKED",
+    "candidate_commit": "af4415ad959df8d87051371ff9cac1993d2d7fed",
+    "candidate_tag": "v0.152.0-alpha.4-loz.1-rc1",
+    "openai_baseline": "7ac2dff554323b17d5f622b7aca236ca75c93259",
+    "pixel_tailscale_ip": "100.100.97.118",
+    "termux_ssh_port": 8022,
+    "reachability": "PASS",
+    "ssh_transport": "PASS",
+    "ssh_authentication": "BLOCKED",
+    "adb": "BLOCKED_EMPTY_DEVICE_LIST",
+    "native_build": "BLOCKED_CARGO_RUSTC_UNAVAILABLE",
+    "android_tls_runtime": "UNPROVEN",
+    "candidate_artifact": "NOT_GENERATED",
+    "pair_connect": "BLOCKED",
+    "session_interaction": "BLOCKED",
+    "disconnect_reconnect": "NOT_RUN",
+    "logical_session_resume": "NOT_RUN",
+    "rollback": "NOT_RUN",
+    "historical_refs": [
+      {"branch":"agent/termux-phone","sha":"893dc78ec627b6f1b20df9ccd787d728ef320274","actions_run":"31421824409"},
+      {"branch":"agent/termux-phone-v150","sha":"8b364ca371d2b3c82093806c7e72a8c53f6d90c6","actions_run":"31433637048"}
+    ],
+    "reason": "The previous native Termux workflow is preserved, but the current candidate could not be executed because port-8022 authentication and ADB access were unavailable."
+  },
   "decision": "SEMANTIC REBASE PROBABLY BETTER",
   "profiles": {
     "minimal": {"loc": "300-1200", "risk": "moderate"},

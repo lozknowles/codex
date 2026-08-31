@@ -357,3 +357,20 @@ desktop platforms now, and for Android only after a real Android builder and
 runtime qualification exist. The immediate owned layer should be source SHA,
 lockfile/toolchain recording, immutable artifacts, checksums, explicit install,
 and rollback—not Rebroad's full CI, installer, or Rusty V8 infrastructure.
+
+## Pixel-first qualification follow-up
+
+The current candidate remains `af4415ad959df8d87051371ff9cac1993d2d7fed`
+(`v0.152.0-alpha.4-loz.1-rc1`) on the pinned OpenAI baseline
+`7ac2dff554323b17d5f622b7aca236ca75c93259`. The preserved Pixel architecture
+is **NATIVE_TERMUX**, not a newly invented Android subsystem. Historical native
+ARM64 workflows remain on `agent/termux-phone` and `agent/termux-phone-v150`;
+their successful Actions runs qualify those historical revisions only.
+
+The Pixel is privately reachable over Tailscale at `100.100.97.118`, and the
+user-confirmed Termux SSH service responds on port `8022`. Authentication was
+not available, so no shell, ADB device, environment inspection, candidate
+build, launch, session interaction, reconnect, or rollback test could run.
+Android TLS runtime behavior is consequently **UNPROVEN**. Final status is
+**PRESERVED_NOT_RETESTED / BLOCKED**, not a regression finding. Full evidence
+is in `docs/PIXEL-QUALIFICATION-0.152.md`.
