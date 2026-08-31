@@ -92,3 +92,36 @@ The focused `codex-code-mode-protocol` test completed on the Pixel with
 **37 passed, 0 failed** in 0.15 seconds after the build configuration fix.
 This validates the protoc path and protocol crate on Android, not the complete
 Codex binary or runtime.
+
+## Execution update: verified V8 artifact and native-build attempt
+
+Authenticated access was restored over SSH on port `8022`. The isolated
+qualification checkout reported Android 17, `aarch64`, Pixel 8 Pro, Rust and
+Cargo `1.97.1`, Clang `21.1.8`, and `protoc` 35.1. The historical
+`~/codex-termux` checkout was not modified.
+
+The requested archive and binding were obtained from `rebroad/rusty_v8`
+release `rusty-v8-v150.4.0` and verified against its release checksum asset:
+
+```text
+librusty_v8_ptrcomp_sandbox_release_aarch64-linux-android.a.gz
+SHA256 54179034104bee6e68c7a83c304dddbaad797d2c65853318e7551a654a0a2b39
+src_binding_ptrcomp_sandbox_release_aarch64-linux-android.rs
+SHA256 639421ae6a0d125dde076cdb4c5d5b3afc9e3ce764acad4a772b7182ea77da66
+```
+
+Both `RUSTY_V8_ARCHIVE` and `RUSTY_V8_SRC_BINDING_PATH` overrides were
+accepted by Rusty V8. Full workspace `cargo check -j1` passed the V8 step and
+completed, with only existing TUI warnings. The focused protocol test remains
+**PASS: 37 passed, 0 failed**.
+
+The historical target-specific Clang/linker configuration was tested for the
+native build. It avoided the earlier V8/linker failure, but the build stopped
+with `No space left on device` before producing `codex`. The generated target
+directory was removed only from the disposable qualification checkout. No
+candidate binary, install, launch, session interaction, reconnect, or rollback
+test was performed. Android TLS runtime behavior remains **UNPROVEN**.
+
+This remains **PARTIALLY_QUALIFIED / BLOCKED**, not a Pixel regression. The
+checksum-pinned Rebroad-hosted artifact is a temporary qualification input,
+not yet a controlled release artifact.

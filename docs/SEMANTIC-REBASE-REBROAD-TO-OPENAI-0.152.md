@@ -392,3 +392,18 @@ The focused Android `codex-code-mode-protocol` test then passed on the Pixel:
 37 tests passed, 0 failed. This is partial qualification of the Android build
 configuration and protocol crate only. The complete native distribution is
 still unqualified because Rusty V8 cannot obtain its Android/aarch64 artifact.
+
+### Pixel execution update: verified artifact path
+
+Port-`8022` SSH access was restored. The isolated qualification checkout
+verified the exact `rebroad/rusty_v8` `rusty-v8-v150.4.0` archive and binding
+using the release checksum asset: archive SHA256
+`54179034104bee6e68c7a83c304dddbaad797d2c65853318e7551a654a0a2b39`; binding
+SHA256 `639421ae6a0d125dde076cdb4c5d5b3afc9e3ce764acad4a772b7182ea77da66`.
+Explicit V8 overrides made the full workspace `cargo check -j1` pass through
+Rusty V8 and complete; the Android protocol test remained green at 37/37.
+
+The historical Termux target-specific linker configuration was then tested.
+The native build exhausted Pixel storage before producing a binary. No runtime,
+reconnect, or rollback qualification was possible. This remains
+**PARTIALLY_QUALIFIED / BLOCKED**; no stable release tag is justified.
