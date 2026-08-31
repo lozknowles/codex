@@ -374,3 +374,21 @@ build, launch, session interaction, reconnect, or rollback test could run.
 Android TLS runtime behavior is consequently **UNPROVEN**. Final status is
 **PRESERVED_NOT_RETESTED / BLOCKED**, not a regression finding. Full evidence
 is in `docs/PIXEL-QUALIFICATION-0.152.md`.
+
+### Execution update
+
+The qualification descendant `393d25d19a91958ee4152fb2770fcee2b231919f`
+contains a small Android build configuration fix in
+`codex-rs/code-mode-protocol/build.rs`: Termux's trusted PATH `protoc` is used
+on Android, while desktop builds retain the vendored resolver. Serial
+`cargo check -j1` passed the protocol, core, app-server, transport, and TUI
+layers, then stopped at Rusty V8 v150.4.0 because the official
+`aarch64-linux-android` prebuilt archive URL returned HTTP 404. Termux lacks
+`gn` and `ninja`, so source V8 compilation was not attempted. This remains a
+**BUILD_CONFIGURATION_ONLY / UNQUALIFIED** blocker; no Rebroad artifact
+infrastructure was imported.
+
+The focused Android `codex-code-mode-protocol` test then passed on the Pixel:
+37 tests passed, 0 failed. This is partial qualification of the Android build
+configuration and protocol crate only. The complete native distribution is
+still unqualified because Rusty V8 cannot obtain its Android/aarch64 artifact.

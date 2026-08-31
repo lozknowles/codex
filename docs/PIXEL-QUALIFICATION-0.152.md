@@ -1,7 +1,6 @@
 # Pixel / Termux qualification record: OpenAI 0.152 downstream
 
-Status: **BLOCKED** for live retest; previous capability is preserved as
-`PRESERVED_NOT_RETESTED`.
+Status: **PARTIALLY_QUALIFIED**; release promotion remains **BLOCKED**.
 
 ## Scope and provenance
 
@@ -63,10 +62,33 @@ therefore not evidence of a Pixel regression.
 ## Conclusion
 
 Architecture retained: **NATIVE_TERMUX**. Final Pixel status:
-**PRESERVED_NOT_RETESTED / BLOCKED**. The previous native Termux workflow and
+**PARTIALLY_QUALIFIED / BLOCKED**. The previous native Termux workflow and
 operational knowledge remain preserved, while the current OpenAI-based
 candidate has not been falsely marked Android-qualified.
 
 Next qualification action: restore authenticated SSH access on port `8022` or
 an approved ADB path, then inspect the Termux environment before attempting a
 native build and the documented install/start/rollback sequence.
+
+## Execution update: qualified descendant
+
+The qualification branch now contains the justified build configuration fix
+at `393d25d19a91958ee4152fb2770fcee2b231919f`. It uses the trusted Termux
+`protoc` on Android while preserving vendored protoc for desktop builds.
+
+With that fix, `cargo check -j1` passed the code-mode protocol, core,
+app-server, transport, and TUI portions of the workspace. It then stopped at
+Rusty V8 `v150.4.0`, requesting the official prebuilt artifact
+`librusty_v8_ptrcomp_sandbox_release_aarch64-linux-android.a.gz`; the official
+release URL returned HTTP 404. Termux has Clang, CMake, Make, Python,
+pkg-config, and OpenSSL, but no `gn` or `ninja`, so a source V8 build was not
+attempted. No V8 artifact was downloaded or substituted.
+
+This is classified as **BUILD_CONFIGURATION_ONLY / UNQUALIFIED**. It is not
+evidence of a semantic runtime regression. Candidate artifact generation,
+launch, interaction, reconnect, and rollback remain blocked.
+
+The focused `codex-code-mode-protocol` test completed on the Pixel with
+**37 passed, 0 failed** in 0.15 seconds after the build configuration fix.
+This validates the protoc path and protocol crate on Android, not the complete
+Codex binary or runtime.
