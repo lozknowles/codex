@@ -174,3 +174,37 @@ were printed and the active installation was not modified.
 Candidate interaction, second interaction, SSH reconnect/resume, connectivity
 interruption, installation, and rollback were not run. `ANDROID_TLS_RUNTIME`
 is **FAIL_PRE_AUTH_APP_SERVER_INIT**. Stable release promotion remains blocked.
+
+## Pixel runtime qualification update: Android lock compatibility
+
+The follow-up branch `qualification/pixel-0.152-loz.2` contains three narrow
+Android compatibility fixes, committed as `4902a7fc1`, `5c567feba`, and
+`5db8949c1`. They replace Android-unsupported standard-library file locks at
+app-server startup, installation-ID initialization, and thread-store
+coordination with Unix `flock`; non-Unix behavior is unchanged, and
+nonblocking writer conflicts still map to `TryLockError::WouldBlock`.
+
+The rebuilt Pixel candidate from `5db8949c1` passed version/help smoke checks
+and real ephemeral execution. It created a thread, used the shell to write
+`candidate-marker.txt` containing `candidate-loz`, and exited 0. A persisted
+session then wrote `resume-start.txt` containing `start-loz`; `codex exec
+resume <session-id>` reconnected to that same session, wrote
+`resume-followup.txt` containing `resumed-loz`, and exited 0. A separate
+candidate install was staged at `~/codex-candidate-install-loz.2`; the active
+Termux installation remained `codex-cli 0.146.0` and was not replaced.
+
+Candidate artifacts:
+
+```text
+codex                  669200352 bytes
+SHA256 06d75b8dcf20ee2a6e1bbc0e3b8096134910646454751086ec30fccc26ab92ba
+codex-code-mode-host   169650064 bytes
+SHA256 b9956f2138b5a231ac0ce9a7311a94f2318c1cc302c532ac65468c8ef58dbb79
+```
+
+The focused Rust tests were not run because the Pixel offline cache lacks the
+`assert_matches` dev dependency. Runtime lock serialization and persistence
+were exercised successfully, but disconnect/reconnect across a live network
+interruption, native Android TLS beyond the authenticated execution path, and
+full desktop qualification remain incomplete. Status is
+**PARTIALLY_QUALIFIED**; no stable release tag is justified.

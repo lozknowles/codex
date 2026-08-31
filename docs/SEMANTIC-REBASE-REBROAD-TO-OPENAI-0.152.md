@@ -433,3 +433,26 @@ interaction, reconnect, installation, or rollback was performed.
 
 `ANDROID_TLS_RUNTIME` is **FAIL_PRE_AUTH_APP_SERVER_INIT** and the release
 remains blocked.
+
+### Pixel runtime qualification update: Android lock compatibility
+
+Branch `qualification/pixel-0.152-loz.2` now records three narrow Android
+compatibility commits: `4902a7fc1` for app-server startup locking,
+`5c567feba` for installation-ID locking, and `5db8949c1` for thread-store
+coordination and nonblocking writer locks. Each uses Unix `flock` only on Unix
+targets and preserves the existing non-Unix implementation and conflict
+semantics.
+
+The resulting candidate passed version/help checks, real ephemeral execution,
+persisted session creation, and `codex exec resume` against the same logical
+session. Candidate SHA256 values are `06d75b8dcf20ee2a6e1bbc0e3b8096134910646454751086ec30fccc26ab92ba`
+for `codex` and
+`b9956f2138b5a231ac0ce9a7311a94f2318c1cc302c532ac65468c8ef58dbb79` for the
+code-mode host. The candidate was staged separately; active Termux Codex
+`0.146.0` remained installed unchanged.
+
+Focused Rust tests remain **BLOCKED** by the Pixel offline cache lacking the
+`assert_matches` dev dependency. Runtime lock serialization and persisted
+resume passed, but network-interruption reconnect and full desktop/Windows
+qualification remain incomplete. This is **PARTIALLY_QUALIFIED**, not a stable
+release.
