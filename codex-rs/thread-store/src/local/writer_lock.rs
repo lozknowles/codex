@@ -4,6 +4,8 @@ use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -61,7 +63,7 @@ impl WriterLockCoordinator {
                 ),
             })?;
 
-        match file.try_lock() {
+        match try_lock_writer_file(&file) {
             Ok(()) => {}
             Err(std::fs::TryLockError::WouldBlock) => {
                 return Err(ThreadStoreError::Conflict {
@@ -106,7 +108,7 @@ impl WriterLockCoordinator {
                     path.display()
                 ),
             })?;
-        file.lock().map_err(|err| ThreadStoreError::Internal {
+        lock_coordination_file(&file).map_err(|err| ThreadStoreError::Internal {
             message: format!(
                 "failed to acquire thread writer coordination lock {}: {err}",
                 path.display()
@@ -140,7 +142,7 @@ impl WriterLockCoordinator {
                     continue;
                 }
             };
-            match file.try_lock() {
+            match try_lock_writer_file(&file) {
                 Ok(()) => {
                     drop(file);
                     if let Err(err) = fs::remove_file(&path)
@@ -163,6 +165,51 @@ impl WriterLockCoordinator {
         }
         Ok(())
     }
+}
+
+#[cfg(unix)]
+fn lock_coordination_file(file: &File) -> io::Result<()> {
+    // `std::fs::File::lock` is unsupported for Android targets in Rust's
+    // standard library. Android/Termux supports blocking `flock`, preserving
+    // the cross-process advisory lock semantics required here.
+    loop {
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            return Ok(());
+        }
+        let error = io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        return Err(error);
+    }
+}
+
+#[cfg(not(unix))]
+fn lock_coordination_file(file: &File) -> io::Result<()> {
+    file.lock()
+}
+
+#[cfg(unix)]
+fn try_lock_writer_file(file: &File) -> std::result::Result<(), std::fs::TryLockError> {
+    let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+    if result == 0 {
+        Ok(())
+    } else {
+        let error = io::Error::last_os_error();
+        if matches!(
+            error.raw_os_error(),
+            Some(code) if code == libc::EWOULDBLOCK || code == libc::EAGAIN
+        ) {
+            Err(std::fs::TryLockError::WouldBlock)
+        } else {
+            Err(std::fs::TryLockError::Error(error))
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn try_lock_writer_file(file: &File) -> std::result::Result<(), std::fs::TryLockError> {
+    file.try_lock()
 }
 
 impl Drop for WriterLockGuard {
