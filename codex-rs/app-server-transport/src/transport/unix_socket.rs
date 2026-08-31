@@ -148,11 +148,36 @@ pub async fn acquire_app_server_startup_lock(
             .read(true)
             .write(true)
             .open(startup_lock_path.as_path())?;
-        file.lock()?;
+        lock_startup_file(&file)?;
         Ok(AppServerStartupLock { _file: file })
     })
     .await
     .map_err(|err| std::io::Error::other(format!("startup lock task failed: {err}")))?
+}
+
+#[cfg(unix)]
+fn lock_startup_file(file: &std::fs::File) -> IoResult<()> {
+    use std::os::fd::AsRawFd;
+
+    // `std::fs::File::lock` is not implemented for the Android target in the
+    // Rust standard library. `flock` is supported by Android/Termux and keeps
+    // the same process-wide advisory exclusion semantics; the lock is
+    // released automatically when the owning file descriptor is closed.
+    loop {
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            return Ok(());
+        }
+        let err = std::io::Error::last_os_error();
+        if err.raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        return Err(err);
+    }
+}
+
+#[cfg(not(unix))]
+fn lock_startup_file(file: &std::fs::File) -> IoResult<()> {
+    file.lock()
 }
 
 #[cfg(unix)]
