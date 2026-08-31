@@ -8,16 +8,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Termux supplies a trusted native `protoc`, while protoc-bin-vendored
     // does not publish an Android/aarch64 artifact. Keep the vendored path
     // for desktop builds and allow explicit PROTOC selection everywhere.
-    let protoc = std::env::var_os("PROTOC")
-        .map(PathBuf::from)
-        .or_else(|| {
-            if cfg!(target_os = "android") {
-                Some(PathBuf::from("protoc"))
-            } else {
-                None
-            }
-        })
-        .unwrap_or(protoc_bin_vendored::protoc_bin_path()?);
+    let protoc = if let Some(path) = std::env::var_os("PROTOC") {
+        PathBuf::from(path)
+    } else if cfg!(target_os = "android") {
+        PathBuf::from("protoc")
+    } else {
+        protoc_bin_vendored::protoc_bin_path()?
+    };
     config.protoc_executable(protoc);
     let proto_files = glob::glob("src/grpc/*.proto")?.collect::<Result<Vec<_>, _>>()?;
 
