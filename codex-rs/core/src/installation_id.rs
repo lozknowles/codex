@@ -6,6 +6,8 @@ use std::io::SeekFrom;
 use std::io::Write;
 
 #[cfg(unix)]
+use std::os::fd::AsRawFd;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -29,7 +31,7 @@ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<Str
         }
 
         let mut file = options.open(&path)?;
-        file.lock()?;
+        lock_installation_id_file(&file)?;
 
         #[cfg(unix)]
         {
@@ -61,6 +63,29 @@ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<Str
         Ok(installation_id)
     })
     .await?
+}
+
+#[cfg(unix)]
+fn lock_installation_id_file(file: &std::fs::File) -> Result<()> {
+    // `std::fs::File::lock` is unsupported for the Android target in Rust's
+    // standard library. Android/Termux supports blocking `flock`, which
+    // preserves the required cross-process advisory lock semantics and is
+    // released automatically when the file descriptor closes.
+    loop {
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            return Ok(());
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::EINTR) {
+            continue;
+        }
+        return Err(error);
+    }
+}
+
+#[cfg(not(unix))]
+fn lock_installation_id_file(file: &std::fs::File) -> Result<()> {
+    file.lock()
 }
 
 #[cfg(test)]
