@@ -407,3 +407,15 @@ The historical Termux target-specific linker configuration was then tested.
 The native build exhausted Pixel storage before producing a binary. No runtime,
 reconnect, or rollback qualification was possible. This remains
 **PARTIALLY_QUALIFIED / BLOCKED**; no stable release tag is justified.
+
+### Pixel execution update: native binaries produced
+
+After removing only generated output from the disposable checkout, the
+verified V8 overrides and the proven target-specific Termux linker setup
+produced both native targets. `codex` was 669645208 bytes with SHA256
+`054818a14695e84c86bec94395764e48d0948e8d7529eae6313c81ab94083b96`; the
+code-mode host was 169650064 bytes with SHA256
+`1f86892fc6517e606034b4f87a5fa048c1fec6b23b7782b2b4933b7afd8aeac2`.
+Version and help smoke checks passed. No installation or live authenticated
+session was attempted, so reconnect, TLS runtime, and rollback remain
+unqualified and no stable tag is justified.

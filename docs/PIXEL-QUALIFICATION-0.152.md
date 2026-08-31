@@ -125,3 +125,24 @@ test was performed. Android TLS runtime behavior remains **UNPROVEN**.
 This remains **PARTIALLY_QUALIFIED / BLOCKED**, not a Pixel regression. The
 checksum-pinned Rebroad-hosted artifact is a temporary qualification input,
 not yet a controlled release artifact.
+
+## Execution update: native binaries produced
+
+The target-specific Termux linker configuration was retried after freeing
+only the generated target directory from the disposable checkout. With
+`CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=0`, `-j2`, and the verified V8
+overrides, both native targets built successfully in the isolated checkout:
+
+```text
+codex                  669645208 bytes
+SHA256 054818a14695e84c86bec94395764e48d0948e8d7529eae6313c81ab94083b96
+codex-code-mode-host   169650064 bytes
+SHA256 1f86892fc6517e606034b4f87a5fa048c1fec6b23b7782b2b4933b7afd8aeac2
+```
+
+`codex --version` reported `codex-cli 0.152.0-alpha.4`; `codex --help` and
+`codex-code-mode-host --help` both passed. The binaries were not installed or
+copied over the active Termux Codex. Full login, live session interaction,
+disconnect/reconnect, logical-session resume, Android TLS runtime, and
+install/rollback remain unqualified. Final status is therefore
+**PARTIALLY_QUALIFIED**, with release promotion still **BLOCKED**.

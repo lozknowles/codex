@@ -118,7 +118,7 @@
     "ssh_transport": "PASS",
     "ssh_authentication": "PASS",
     "adb": "BLOCKED_EMPTY_DEVICE_LIST",
-    "native_build": "BLOCKED_PIXEL_STORAGE_NO_SPACE_AFTER_VERIFIED_V8_OVERRIDE",
+    "native_build": "PASS_NATIVE_CODEX_AND_CODE_MODE_HOST",
     "cargo_check_protocol_core": "PASS",
     "cargo_check_workspace": "PASS_WITH_VERIFIED_V8_OVERRIDE",
     "focused_protocol_test": "PASS_37_PASSED_0_FAILED",
@@ -131,7 +131,13 @@
     "rusty_v8_overrides": "PASS",
     "source_build_prerequisites": {"gn":"unavailable","ninja":"unavailable","clang":"21.1.8","cmake":"available","make":"available"},
     "android_tls_runtime": "UNPROVEN",
-    "candidate_artifact": "NOT_GENERATED_STORAGE_BLOCKED",
+    "candidate_artifact": "GENERATED_IN_DISPOSABLE_PIXEL_CHECKOUT_NOT_INSTALLED",
+    "codex_artifact_sha256": "054818a14695e84c86bec94395764e48d0948e8d7529eae6313c81ab94083b96",
+    "codex_artifact_bytes": 669645208,
+    "code_mode_host_artifact_sha256": "1f86892fc6517e606034b4f87a5fa048c1fec6b23b7782b2b4933b7afd8aeac2",
+    "code_mode_host_artifact_bytes": 169650064,
+    "version_smoke": "PASS_codex_cli_0.152.0-alpha.4",
+    "help_smoke": "PASS_codex_and_code_mode_host",
     "pair_connect": "BLOCKED",
     "session_interaction": "BLOCKED",
     "disconnect_reconnect": "NOT_RUN",
@@ -141,7 +147,7 @@
       {"branch":"agent/termux-phone","sha":"893dc78ec627b6f1b20df9ccd787d728ef320274","actions_run":"31421824409"},
       {"branch":"agent/termux-phone-v150","sha":"8b364ca371d2b3c82093806c7e72a8c53f6d90c6","actions_run":"31433637048"}
     ],
-    "reason": "Port-8022 authentication was restored. Verified V8 overrides made workspace cargo check pass, but the native Android build exhausted Pixel storage before producing a binary; runtime and rollback remain unqualified."
+    "reason": "Port-8022 authentication was restored. Verified V8 overrides and the proven Termux linker configuration produced both native binaries and passed version/help smoke checks. No installation or live authenticated session was attempted; TLS runtime, reconnect, and rollback remain unqualified."
   },
   "decision": "SEMANTIC REBASE PROBABLY BETTER",
   "profiles": {
