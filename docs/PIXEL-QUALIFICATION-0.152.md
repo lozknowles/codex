@@ -146,3 +146,31 @@ copied over the active Termux Codex. Full login, live session interaction,
 disconnect/reconnect, logical-session resume, Android TLS runtime, and
 install/rollback remain unqualified. Final status is therefore
 **PARTIALLY_QUALIFIED**, with release promotion still **BLOCKED**.
+
+## Runtime qualification update: candidate initialization failure
+
+The exact candidate hash was rechecked before runtime testing:
+
+```text
+/data/data/com.termux/files/home/codex-qualification-0.152/codex-rs/target/aarch64-linux-android/debug/codex
+SHA256 054818a14695e84c86bec94395764e48d0948e8d7529eae6313c81ab94083b96
+```
+
+The candidate was invoked against the disposable repository
+`/data/data/com.termux/files/home/codex-runtime-qualification-0.152`.
+Both normal and `--ephemeral` non-interactive execution failed before any
+network or authentication request:
+
+```text
+Error: failed to initialize in-process app-server client: lock() not supported
+```
+
+The unchanged active Termux Codex (`/data/data/com.termux/files/usr/bin/codex`,
+`codex-cli 0.146.0`) reached its authenticated execution path in the same
+repository. This identifies a candidate Android/Termux runtime incompatibility
+before TLS/authentication, not an SSH or credential failure. No credentials
+were printed and the active installation was not modified.
+
+Candidate interaction, second interaction, SSH reconnect/resume, connectivity
+interruption, installation, and rollback were not run. `ANDROID_TLS_RUNTIME`
+is **FAIL_PRE_AUTH_APP_SERVER_INIT**. Stable release promotion remains blocked.

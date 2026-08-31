@@ -419,3 +419,17 @@ code-mode host was 169650064 bytes with SHA256
 Version and help smoke checks passed. No installation or live authenticated
 session was attempted, so reconnect, TLS runtime, and rollback remain
 unqualified and no stable tag is justified.
+
+### Pixel runtime qualification update
+
+The exact native candidate was rehashed and invoked from the isolated build.
+Its documented non-interactive execution path, including `--ephemeral`, failed
+before network/authentication initialization with
+`failed to initialize in-process app-server client: lock() not supported`.
+The unchanged active 0.146.0 installation reached the authenticated execution
+path in the same disposable repository, so this is a candidate Android runtime
+incompatibility rather than an SSH reachability failure. No candidate
+interaction, reconnect, installation, or rollback was performed.
+
+`ANDROID_TLS_RUNTIME` is **FAIL_PRE_AUTH_APP_SERVER_INIT** and the release
+remains blocked.
