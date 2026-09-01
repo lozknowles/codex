@@ -361,7 +361,12 @@ printf '{"codex_sha256":"%s","codex_bytes":%s,"code_mode_host_sha256":"%s","code
                 raise HarnessError(f"imported artifact differs from manifest: {key}")
         self._write_json(self.evidence_dir(version) / "build.json", summary)
         state = self.load_state(version)
-        state["source"] = {"upstream_sha": self.manifest["last_candidate"]["upstream_sha"], "path": remote_source}
+        state["source"] = {
+            **state.get("source", {}),
+            "upstream_sha": state.get("source", {}).get("upstream_sha")
+            or self.manifest["last_candidate"]["upstream_sha"],
+            "path": remote_source,
+        }
         state["downstream_sha"] = source_sha
         state["build"] = summary
         state["stages"]["BUILT"] = True

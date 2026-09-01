@@ -208,6 +208,33 @@ class HarnessTest(unittest.TestCase):
             harness.build("0.153.0", "pixel", "/source", "/v8", "/binding")
         self.assertEqual(harness.load_state("0.153.0")["gates"]["BUILD"], "NOT_RUN")
 
+    def test_import_build_preserves_current_upstream_provenance(self):
+        summary = {
+            "codex_sha256": "c" * 64,
+            "codex_bytes": 1,
+            "code_mode_host_sha256": "d" * 64,
+            "code_mode_host_bytes": 2,
+            "version": "codex-cli 0.153.0",
+        }
+        harness = self.harness(FakeRunner([completed(json.dumps(summary) + "\n")]))
+        state = harness.load_state("0.153.0")
+        state["source"] = {
+            "tag": "rust-v0.153.0",
+            "upstream_sha": "b" * 40,
+            "path": "/prepared",
+        }
+        harness.save_state("0.153.0", state)
+
+        harness.import_build(
+            "0.153.0", "pixel", "/release-source", "e" * 40, "/candidate", "/host"
+        )
+
+        updated = harness.load_state("0.153.0")
+        self.assertEqual(updated["source"]["tag"], "rust-v0.153.0")
+        self.assertEqual(updated["source"]["upstream_sha"], "b" * 40)
+        self.assertEqual(updated["source"]["path"], "/release-source")
+        self.assertEqual(updated["downstream_sha"], "e" * 40)
+
     def test_qualification_failure_does_not_mark_runtime_pass(self):
         harness = self.harness(FakeRunner([completed(stderr="runtime failed", returncode=1)]))
         state = harness.load_state("0.153.0")
