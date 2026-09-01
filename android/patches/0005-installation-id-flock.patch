@@ -1,0 +1,64 @@
+From 5c567feba1651947505598593005080abfa398c0 Mon Sep 17 00:00:00 2001
+From: Codex Controlled Distribution Audit <codex-controlled-audit@localhost>
+Date: Mon, 31 Aug 2026 19:02:09 +0100
+Subject: [PATCH] fix(android): use flock for installation id lock
+
+---
+ codex-rs/core/src/installation_id.rs | 27 ++++++++++++++++++++++++++-
+ 1 file changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/codex-rs/core/src/installation_id.rs b/codex-rs/core/src/installation_id.rs
+index a42e6b6d8..94006aa4e 100644
+--- a/codex-rs/core/src/installation_id.rs
++++ b/codex-rs/core/src/installation_id.rs
+@@ -5,6 +5,8 @@ use std::io::Seek;
+ use std::io::SeekFrom;
+ use std::io::Write;
+ 
++#[cfg(unix)]
++use std::os::fd::AsRawFd;
+ #[cfg(unix)]
+ use std::os::unix::fs::OpenOptionsExt;
+ #[cfg(unix)]
+@@ -29,7 +31,7 @@ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<Str
+         }
+ 
+         let mut file = options.open(&path)?;
+-        file.lock()?;
++        lock_installation_id_file(&file)?;
+ 
+         #[cfg(unix)]
+         {
+@@ -63,6 +65,29 @@ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<Str
+     .await?
+ }
+ 
++#[cfg(unix)]
++fn lock_installation_id_file(file: &std::fs::File) -> Result<()> {
++    // `std::fs::File::lock` is unsupported for the Android target in Rust's
++    // standard library. Android/Termux supports blocking `flock`, which
++    // preserves the required cross-process advisory lock semantics and is
++    // released automatically when the file descriptor closes.
++    loop {
++        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
++            return Ok(());
++        }
++        let error = std::io::Error::last_os_error();
++        if error.raw_os_error() == Some(libc::EINTR) {
++            continue;
++        }
++        return Err(error);
++    }
++}
++
++#[cfg(not(unix))]
++fn lock_installation_id_file(file: &std::fs::File) -> Result<()> {
++    file.lock()
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::INSTALLATION_ID_FILENAME;
+-- 
+2.53.0.windows.3
+

@@ -1,0 +1,40 @@
+From 393d25d19a91958ee4152fb2770fcee2b231919f Mon Sep 17 00:00:00 2001
+From: Codex Controlled Distribution Audit <codex-controlled-audit@localhost>
+Date: Mon, 31 Aug 2026 10:20:54 +0100
+Subject: [PATCH] build: select Android protoc lazily
+
+---
+ codex-rs/code-mode-protocol/build.rs | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/codex-rs/code-mode-protocol/build.rs b/codex-rs/code-mode-protocol/build.rs
+index f9540e91d..e7cf552bc 100644
+--- a/codex-rs/code-mode-protocol/build.rs
++++ b/codex-rs/code-mode-protocol/build.rs
+@@ -8,16 +8,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
+     // Termux supplies a trusted native `protoc`, while protoc-bin-vendored
+     // does not publish an Android/aarch64 artifact. Keep the vendored path
+     // for desktop builds and allow explicit PROTOC selection everywhere.
+-    let protoc = std::env::var_os("PROTOC")
+-        .map(PathBuf::from)
+-        .or_else(|| {
+-            if cfg!(target_os = "android") {
+-                Some(PathBuf::from("protoc"))
+-            } else {
+-                None
+-            }
+-        })
+-        .unwrap_or(protoc_bin_vendored::protoc_bin_path()?);
++    let protoc = if let Some(path) = std::env::var_os("PROTOC") {
++        PathBuf::from(path)
++    } else if cfg!(target_os = "android") {
++        PathBuf::from("protoc")
++    } else {
++        protoc_bin_vendored::protoc_bin_path()?
++    };
+     config.protoc_executable(protoc);
+     let proto_files = glob::glob("src/grpc/*.proto")?.collect::<Result<Vec<_>, _>>()?;
+ 
+-- 
+2.53.0.windows.3
+

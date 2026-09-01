@@ -1,0 +1,38 @@
+From 0ef18d9fda56ec4a1dbac09fea2926d760f16eeb Mon Sep 17 00:00:00 2001
+From: Codex Controlled Distribution Audit <codex-controlled-audit@localhost>
+Date: Mon, 31 Aug 2026 10:18:55 +0100
+Subject: [PATCH] build: use Termux protoc on Android
+
+---
+ codex-rs/code-mode-protocol/build.rs | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/codex-rs/code-mode-protocol/build.rs b/codex-rs/code-mode-protocol/build.rs
+index d8d8bbff3..f9540e91d 100644
+--- a/codex-rs/code-mode-protocol/build.rs
++++ b/codex-rs/code-mode-protocol/build.rs
+@@ -5,7 +5,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
+     println!("cargo:rerun-if-changed=src/grpc");
+ 
+     let mut config = tonic_prost_build::Config::new();
+-    config.protoc_executable(protoc_bin_vendored::protoc_bin_path()?);
++    // Termux supplies a trusted native `protoc`, while protoc-bin-vendored
++    // does not publish an Android/aarch64 artifact. Keep the vendored path
++    // for desktop builds and allow explicit PROTOC selection everywhere.
++    let protoc = std::env::var_os("PROTOC")
++        .map(PathBuf::from)
++        .or_else(|| {
++            if cfg!(target_os = "android") {
++                Some(PathBuf::from("protoc"))
++            } else {
++                None
++            }
++        })
++        .unwrap_or(protoc_bin_vendored::protoc_bin_path()?);
++    config.protoc_executable(protoc);
+     let proto_files = glob::glob("src/grpc/*.proto")?.collect::<Result<Vec<_>, _>>()?;
+ 
+     tonic_prost_build::configure()
+-- 
+2.53.0.windows.3
+
