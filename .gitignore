@@ -62,6 +62,7 @@ yarn-error.log*
 .netlify/
 /.tmp/sdk-ci/
 /upstream-rusty-v8/
+/work/android/
 
 # patches
 apply_patch/
