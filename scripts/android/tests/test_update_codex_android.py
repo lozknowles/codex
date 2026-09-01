@@ -148,6 +148,41 @@ class HarnessTest(unittest.TestCase):
         file.write_text("different\n", encoding="utf-8")
         self.assertEqual(self.harness().classify_patch(repo, patch), "REVIEW_REQUIRED")
 
+    def test_adopt_source_accepts_clean_descendant(self):
+        repo, file, _ = self.init_git_fixture()
+        base = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo, check=True, text=True, capture_output=True
+        ).stdout.strip()
+        file.write_text("adopted\n", encoding="utf-8")
+        subprocess.run(["git", "add", "value.txt"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "-qm", "adopted source"], cwd=repo, check=True)
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo, check=True, text=True, capture_output=True
+        ).stdout.strip()
+        harness = self.harness()
+        state = harness.load_state("0.153.0")
+        state["downstream_sha"] = base
+        harness.save_state("0.153.0", state)
+
+        adopted = harness.adopt_source(repo, "0.153.0")
+
+        self.assertEqual(adopted["sha"], head)
+        self.assertIn("adopted source", adopted["commits"][0])
+
+    def test_adopt_source_rejects_dirty_tree(self):
+        repo, file, _ = self.init_git_fixture()
+        base = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo, check=True, text=True, capture_output=True
+        ).stdout.strip()
+        file.write_text("dirty\n", encoding="utf-8")
+        harness = self.harness()
+        state = harness.load_state("0.153.0")
+        state["downstream_sha"] = base
+        harness.save_state("0.153.0", state)
+
+        with self.assertRaisesRegex(MODULE.HarnessError, "dirty"):
+            harness.adopt_source(repo, "0.153.0")
+
     def test_interrupted_state_round_trip(self):
         harness = self.harness()
         state = harness.load_state("0.153.0")
@@ -158,7 +193,90 @@ class HarnessTest(unittest.TestCase):
 
     def test_install_is_fail_closed_without_approval(self):
         with self.assertRaisesRegex(MODULE.HarnessError, "approve-install"):
-            self.harness().install("0.153.0", "pixel", "/candidate", "/active", False)
+            self.harness().install(
+                "0.153.0",
+                "pixel",
+                "/candidate",
+                "/candidate-host",
+                "/active",
+                "/active-host",
+                False,
+            )
+
+    def test_install_records_both_candidate_artifacts(self):
+        remote_summary = {
+            "old_codex_sha256": "a" * 64,
+            "old_codex_mode": "755",
+            "old_host_present": False,
+            "old_host_sha256": "",
+            "old_host_mode": "",
+            "codex_sha256": "c" * 64,
+            "code_mode_host_sha256": "d" * 64,
+        }
+        harness = self.harness(FakeRunner([completed(stdout=json.dumps(remote_summary) + "\n")]))
+        state = harness.load_state("0.153.0")
+        state["build"] = {"codex_sha256": "c" * 64, "code_mode_host_sha256": "d" * 64}
+        state["gates"].update(
+            {
+                "PROVENANCE": "PASS",
+                "BUILD": "PASS",
+                "APP_SERVER": "PASS",
+                "AUTHENTICATED_EXECUTION": "PASS",
+                "ANDROID_TLS": "PASS",
+                "PERSISTENCE": "PASS",
+                "RESUME": "PASS",
+                "SSH_RECONNECT": "PASS",
+                "LOCKING": "PASS_FOCUSED_AND_RUNTIME",
+            }
+        )
+        harness.save_state("0.153.0", state)
+
+        harness.install(
+            "0.153.0", "pixel", "/candidate", "/candidate-host", "/active", "/active-host", True
+        )
+
+        install = harness.load_state("0.153.0")["install"]
+        self.assertEqual(install["code_mode_host_sha256"], "d" * 64)
+        self.assertEqual(harness.runner.calls[0][0][-8:], [
+            "/candidate",
+            "/candidate-host",
+            "/active",
+            "/active-host",
+            "/active.backup-0.153.0",
+            "/active-host.backup-0.153.0",
+            "c" * 64,
+            "d" * 64,
+        ])
+
+    def test_rollback_removes_new_host_when_previous_install_had_none(self):
+        harness = self.harness(
+            FakeRunner(
+                [
+                    completed(
+                        stdout=json.dumps(
+                            {"codex_sha256": "a" * 64, "host_present": False, "code_mode_host_sha256": ""}
+                        )
+                        + "\n"
+                    )
+                ]
+            )
+        )
+        state = harness.load_state("0.153.0")
+        state["install"] = {
+            "active": "/active",
+            "active_host": "/active-host",
+            "backup": "/backup",
+            "backup_host": "/backup-host",
+            "old_host_present": False,
+            "old_codex_sha256": "a" * 64,
+            "old_host_sha256": "",
+        }
+        harness.save_state("0.153.0", state)
+
+        harness.rollback("0.153.0", "pixel")
+
+        self.assertIn('rm -f "$active_host"', harness.runner.calls[0][1]["input"])
+        self.assertEqual(harness.load_state("0.153.0")["gates"]["ROLLBACK"], "PASS")
 
     def test_build_failure_does_not_mark_build_pass(self):
         harness = self.harness(FakeRunner([completed(stderr="compile failed", returncode=1)]))
@@ -168,6 +286,69 @@ class HarnessTest(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.HarnessError, "compile failed"):
             harness.build("0.153.0", "pixel", "/source", "/v8", "/binding")
         self.assertEqual(harness.load_state("0.153.0")["gates"]["BUILD"], "NOT_RUN")
+
+    def test_build_disables_release_lto_for_pixel_memory_bound(self):
+        summary = {
+            "elapsed_seconds": 1,
+            "codex_sha256": "c" * 64,
+            "codex_bytes": 10,
+            "code_mode_host_sha256": "d" * 64,
+            "code_mode_host_bytes": 11,
+            "clang_builtins": "/builtins.a",
+            "clang_builtins_sha256": "e" * 64,
+            "release_lto": False,
+        }
+        harness = self.harness(FakeRunner([completed(stdout=json.dumps(summary) + "\n")]))
+        state = harness.load_state("0.153.0")
+        state["source"] = {"upstream_sha": "a" * 40}
+        harness.save_state("0.153.0", state)
+
+        result = harness.build("0.153.0", "pixel", "/source", "/v8", "/binding")
+
+        self.assertFalse(result["release_lto"])
+        self.assertIn("CARGO_PROFILE_RELEASE_LTO=false", harness.runner.calls[0][1]["input"])
+
+    def test_lock_tests_record_exact_counts_and_log(self):
+        summaries = "\n".join(
+            [
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out",
+                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out",
+                "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 201 filtered out",
+            ]
+        )
+        harness = self.harness(FakeRunner([completed(stdout=summaries)]))
+        state = harness.load_state("0.153.0")
+        state["source"] = {"upstream_sha": "a" * 40}
+        harness.save_state("0.153.0", state)
+
+        harness.lock_tests("0.153.0", "pixel", "/source", "/v8", "/binding")
+
+        evidence = json.loads(
+            (self.root / "evidence" / "android" / "0.153.0" / "lock-tests.json").read_text()
+        )
+        self.assertEqual(evidence["totals"]["passed"], 5)
+        self.assertEqual(evidence["totals"]["failed"], 0)
+        self.assertTrue((self.root / evidence["log"]).is_file())
+
+    def test_qualification_runs_real_app_server_initialize(self):
+        harness = self.harness(
+            FakeRunner(
+                [
+                    completed(stdout='{"version":"codex-cli 0.153.0","thread_id":"thread-1","app_server":"PASS_INITIALIZE"}\n'),
+                    completed(stdout='{"thread_id":"thread-1","resume":"PASS"}\n'),
+                ]
+            )
+        )
+        state = harness.load_state("0.153.0")
+        state["build"] = {"codex_sha256": "c" * 64, "code_mode_host_sha256": "d" * 64}
+        harness.save_state("0.153.0", state)
+
+        result = harness.qualify("0.153.0", "pixel", "/candidate", "/host", "/runtime")
+
+        first_script = harness.runner.calls[0][1]["input"]
+        self.assertIn('"method":"initialize"', first_script)
+        self.assertIn("app-server", first_script)
+        self.assertEqual(result["app_server"], "PASS_INITIALIZE")
 
     def test_qualification_failure_does_not_mark_runtime_pass(self):
         harness = self.harness(FakeRunner([completed(stderr="runtime failed", returncode=1)]))

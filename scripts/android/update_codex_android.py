@@ -281,6 +281,30 @@ class Harness:
         state["stages"]["PATCHED"] = True
         self.save_state(version, state)
 
+    def adopt_source(self, source: Path, version: str) -> dict[str, Any]:
+        state = self.load_state(version)
+        previous_sha = state.get("downstream_sha") or state.get("source", {}).get("upstream_sha")
+        if not previous_sha:
+            raise HarnessError("prepare and patch the candidate before adopting an additional source commit")
+        actual_sha = self.git("rev-parse", "HEAD", cwd=source).stdout.strip()
+        if self.git("status", "--porcelain", "--untracked-files=no", cwd=source).stdout.strip():
+            raise HarnessError("cannot adopt a dirty source tree")
+        ancestry = self.git("merge-base", "--is-ancestor", previous_sha, actual_sha, cwd=source, check=False)
+        if ancestry.returncode:
+            raise HarnessError("adopted source must descend from the classified patch stack")
+        commits = self.git(
+            "log", "--format=%H %s", f"{previous_sha}..{actual_sha}", cwd=source
+        ).stdout.splitlines()
+        state["downstream_sha"] = actual_sha
+        state["adopted_source"] = {
+            "previous_sha": previous_sha,
+            "sha": actual_sha,
+            "commits": commits,
+            "recorded_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+        self.save_state(version, state)
+        return state["adopted_source"]
+
     def ssh_script(self, target: str, script: str, arguments: list[str], check: bool = True) -> subprocess.CompletedProcess:
         command = ["ssh", *self.ssh_options, target, "bash", "-s", "--", *arguments]
         result = self.runner(command, input=script, text=True, capture_output=True)
@@ -307,20 +331,24 @@ available_kb=$(df -Pk . | awk 'NR==2 {print $4}')
 [ -f "$v8_archive" ] && [ -f "$v8_binding" ] || { echo RUSTY_V8_REFRESH_REQUIRED >&2; exit 44; }
 export RUSTY_V8_ARCHIVE="$v8_archive"
 export RUSTY_V8_SRC_BINDING_PATH="$v8_binding"
-export CARGO_INCREMENTAL=1 CARGO_PROFILE_RELEASE_DEBUG=0
+export CARGO_INCREMENTAL=1 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_LTO=false
 export CC_AARCH64_LINUX_ANDROID=aarch64-linux-android-clang
 export CXX_AARCH64_LINUX_ANDROID=aarch64-linux-android-clang++
 export AR_AARCH64_LINUX_ANDROID=llvm-ar RANLIB_AARCH64_LINUX_ANDROID=llvm-ranlib
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android-clang
+clang_builtins=$(find "${PREFIX:-/data/data/com.termux/files/usr}/lib/clang" -type f -name 'libclang_rt.builtins-aarch64-android.a' | sort -V | tail -1)
+[ -f "$clang_builtins" ] || { echo ANDROID_CLANG_BUILTINS_REQUIRED >&2; exit 45; }
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS='-Clink-arg=-lc++_shared -Clink-arg=-Wl,-rpath,$ORIGIN'
 start=$(date +%s)
-cargo build --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-cli -p codex-code-mode-host -j2 </dev/null
+cargo rustc --locked --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-code-mode-host --bin codex-code-mode-host -j1 -- -C "link-arg=$clang_builtins" </dev/null
+cargo rustc --locked --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-cli --bin codex -j1 -- -C "link-arg=$clang_builtins" </dev/null
 elapsed=$(($(date +%s)-start))
 codex=codex-rs/target/aarch64-linux-android/release/codex
 host=codex-rs/target/aarch64-linux-android/release/codex-code-mode-host
-printf '{"elapsed_seconds":%s,"codex_sha256":"%s","codex_bytes":%s,"code_mode_host_sha256":"%s","code_mode_host_bytes":%s}\n' \
+printf '{"elapsed_seconds":%s,"codex_sha256":"%s","codex_bytes":%s,"code_mode_host_sha256":"%s","code_mode_host_bytes":%s,"clang_builtins":"%s","clang_builtins_sha256":"%s","release_lto":false}\n' \
   "$elapsed" "$(sha256sum "$codex" | awk '{print $1}')" "$(wc -c < "$codex")" \
-  "$(sha256sum "$host" | awk '{print $1}')" "$(wc -c < "$host")"
+  "$(sha256sum "$host" | awk '{print $1}')" "$(wc -c < "$host")" \
+  "$clang_builtins" "$(sha256sum "$clang_builtins" | awk '{print $1}')"
 '''
         result = self.ssh_script(target, script, [remote_source, expected_sha, v8_archive, v8_binding])
         summary = self.last_json_output(result, "build")
@@ -379,18 +407,53 @@ cd "$source_dir"
 [ "$(git rev-parse HEAD)" = "$expected_sha" ] || exit 45
 export RUSTY_V8_ARCHIVE="$v8_archive" RUSTY_V8_SRC_BINDING_PATH="$v8_binding"
 export CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-thread-store writer_locks --lib -j2 </dev/null
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-app-server-transport app_server_startup_lock_serializes_waiters --lib -j2 </dev/null
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-core resolve_installation_id --lib -j2 </dev/null
+export CC_AARCH64_LINUX_ANDROID=aarch64-linux-android-clang
+export CXX_AARCH64_LINUX_ANDROID=aarch64-linux-android-clang++
+export AR_AARCH64_LINUX_ANDROID=llvm-ar RANLIB_AARCH64_LINUX_ANDROID=llvm-ranlib
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android-clang
+clang_builtins=$(find "${PREFIX:-/data/data/com.termux/files/usr}/lib/clang" -type f -name 'libclang_rt.builtins-aarch64-android.a' | sort -V | tail -1)
+[ -f "$clang_builtins" ] || { echo ANDROID_CLANG_BUILTINS_REQUIRED >&2; exit 46; }
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-Clink-arg=-lc++_shared -Clink-arg=-Wl,-rpath,\$ORIGIN -Clink-arg=$clang_builtins"
+cargo test --locked --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-thread-store writer_locks --lib -j1 </dev/null
+cargo test --locked --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-app-server-transport app_server_startup_lock_serializes_waiters --lib -j1 </dev/null
+cargo test --locked --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-core resolve_installation_id --lib -j1 </dev/null
 '''
         result = self.ssh_script(target, script, [remote_source, expected_sha, v8_archive, v8_binding])
+        output = result.stdout + result.stderr
+        test_results = [
+            {
+                "status": match.group("status"),
+                "passed": int(match.group("passed")),
+                "failed": int(match.group("failed")),
+                "ignored": int(match.group("ignored")),
+                "measured": int(match.group("measured")),
+                "filtered_out": int(match.group("filtered")),
+            }
+            for match in re.finditer(
+                r"test result: (?P<status>\w+)\. (?P<passed>\d+) passed; "
+                r"(?P<failed>\d+) failed; (?P<ignored>\d+) ignored; "
+                r"(?P<measured>\d+) measured; (?P<filtered>\d+) filtered out",
+                output,
+            )
+        ]
+        if len(test_results) != 3 or any(item["status"] != "ok" or item["failed"] for item in test_results):
+            raise HarnessError("focused lock tests completed without three unambiguous passing summaries")
+        log_path = self.evidence_dir(version) / "lock-tests.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(output, encoding="utf-8")
         evidence = {
             "result": "PASS",
             "target": target,
             "source_sha": expected_sha,
             "tests": ["thread-store writer locks", "app-server startup lock", "installation ID"],
+            "test_results": test_results,
+            "totals": {
+                key: sum(item[key] for item in test_results)
+                for key in ["passed", "failed", "ignored", "measured", "filtered_out"]
+            },
             "completed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "output_sha256": hashlib.sha256((result.stdout + result.stderr).encode()).hexdigest(),
+            "output_sha256": hashlib.sha256(output.encode()).hexdigest(),
+            "log": str(log_path.relative_to(self.root)),
         }
         self._write_json(self.evidence_dir(version) / "lock-tests.json", evidence)
         state["lock_tests"] = evidence
@@ -416,13 +479,19 @@ $candidate --help </dev/null >/dev/null
 $code_host --help </dev/null >/dev/null
 cd "$runtime"
 rm -f evergreen-ephemeral.txt evergreen-persist.txt evergreen-resume.txt
+app_server_home="$runtime/app-server-home"
+mkdir -p "$app_server_home"
+printf '%s\n' '{"method":"initialize","id":0,"params":{"clientInfo":{"name":"loz_android_qualification","title":"loz Android qualification","version":"1"}}}' \
+  | CODEX_HOME="$app_server_home" timeout 30 "$candidate" app-server > app-server.jsonl 2> app-server.stderr
+grep -Eq '"id"[[:space:]]*:[[:space:]]*0' app-server.jsonl || { echo APP_SERVER_INITIALIZE_RESPONSE_MISSING >&2; exit 57; }
+grep -Eq '"result"[[:space:]]*:' app-server.jsonl || { echo APP_SERVER_INITIALIZE_RESULT_MISSING >&2; exit 58; }
 $candidate exec --ephemeral --skip-git-repo-check --json 'Use the shell tool to write exactly evergreen-ephemeral to evergreen-ephemeral.txt, then stop.' </dev/null > ephemeral.jsonl
 [ "$(cat evergreen-ephemeral.txt)" = evergreen-ephemeral ] || exit 53
 $candidate exec --skip-git-repo-check --json 'Use the shell tool to write exactly evergreen-persist to evergreen-persist.txt, then stop.' </dev/null > persist.jsonl
 [ "$(cat evergreen-persist.txt)" = evergreen-persist ] || exit 54
 thread_id=$(sed -n 's/.*"thread_id":"\([^"]*\)".*/\1/p' persist.jsonl | head -1)
 [ -n "$thread_id" ] || { echo THREAD_ID_NOT_FOUND >&2; exit 55; }
-printf '{"version":"%s","thread_id":"%s"}\n' "$version" "$thread_id"
+printf '{"version":"%s","thread_id":"%s","app_server":"PASS_INITIALIZE"}\n' "$version" "$thread_id"
 '''
         initial = self.ssh_script(target, script, [candidate, code_host, runtime_dir, expected["codex_sha256"], expected["code_mode_host_sha256"]])
         runtime = self.last_json_output(initial, "initial qualification")
@@ -452,7 +521,14 @@ printf '{"thread_id":"%s","resume":"PASS"}\n' "$thread_id"
             "ROLLBACK": "NOT_RUN",
             "PROMOTION": "NOT_RUN",
         }
-        summary = {"version": version, "target": target, "thread_id": resume["thread_id"], "gates": gates, "verdict": "RUNTIME_PASS"}
+        summary = {
+            "version": version,
+            "target": target,
+            "thread_id": resume["thread_id"],
+            "app_server": runtime["app_server"],
+            "gates": gates,
+            "verdict": "RUNTIME_PASS",
+        }
         self._write_json(self.evidence_dir(version) / "qualification.json", summary)
         state["gates"].update(gates)
         state["stages"]["RUNTIME_PASS"] = True
@@ -461,7 +537,16 @@ printf '{"thread_id":"%s","resume":"PASS"}\n' "$thread_id"
         self.save_state(version, state)
         return summary
 
-    def install(self, version: str, target: str, candidate: str, active: str, approve: bool) -> None:
+    def install(
+        self,
+        version: str,
+        target: str,
+        candidate: str,
+        code_host: str,
+        active: str,
+        active_host: str,
+        approve: bool,
+    ) -> None:
         if not approve:
             raise HarnessError("install requires --approve-install")
         state = self.load_state(version)
@@ -469,24 +554,68 @@ printf '{"thread_id":"%s","resume":"PASS"}\n' "$thread_id"
         if any(not state["gates"].get(gate, "").startswith("PASS") for gate in required) or state["gates"].get("LOCKING") != "PASS_FOCUSED_AND_RUNTIME":
             raise HarnessError("all runtime qualification gates must pass before install")
         expected = state["build"]["codex_sha256"]
+        expected_host = state["build"]["code_mode_host_sha256"]
         backup = f"{active}.backup-{version}"
+        backup_host = f"{active_host}.backup-{version}"
         script = r'''set -eu
 candidate=$1
-active=$2
-backup=$3
-expected=$4
+code_host=$2
+active=$3
+active_host=$4
+backup=$5
+backup_host=$6
+expected=$7
+expected_host=$8
 [ "$(sha256sum "$candidate" | awk '{print $1}')" = "$expected" ] || exit 61
+[ "$(sha256sum "$code_host" | awk '{print $1}')" = "$expected_host" ] || exit 65
 [ -f "$active" ] || exit 62
-[ ! -e "$backup" ] || exit 63
+[ ! -e "$backup" ] && [ ! -e "$backup_host" ] || exit 63
+old_sha=$(sha256sum "$active" | awk '{print $1}')
+old_mode=$(stat -c %a "$active")
 cp -p "$active" "$backup"
+old_host_present=false
+old_host_sha=""
+old_host_mode=""
+if [ -f "$active_host" ]; then
+  old_host_present=true
+  old_host_sha=$(sha256sum "$active_host" | awk '{print $1}')
+  old_host_mode=$(stat -c %a "$active_host")
+  cp -p "$active_host" "$backup_host"
+fi
 temporary="${active}.new.$$"
+temporary_host="${active_host}.new.$$"
 cp "$candidate" "$temporary"
+cp "$code_host" "$temporary_host"
 chmod --reference="$active" "$temporary"
+chmod --reference="$active" "$temporary_host"
+mv "$temporary_host" "$active_host"
 mv "$temporary" "$active"
-[ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || { cp -p "$backup" "$active"; exit 64; }
+[ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] && \
+  [ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_host" ] || {
+    cp -p "$backup" "$active"
+    if [ "$old_host_present" = true ]; then cp -p "$backup_host" "$active_host"; else rm -f "$active_host"; fi
+    exit 64
+  }
+printf '{"old_codex_sha256":"%s","old_codex_mode":"%s","old_host_present":%s,"old_host_sha256":"%s","old_host_mode":"%s","codex_sha256":"%s","code_mode_host_sha256":"%s"}\n' \
+  "$old_sha" "$old_mode" "$old_host_present" "$old_host_sha" "$old_host_mode" "$expected" "$expected_host"
 '''
-        self.ssh_script(target, script, [candidate, active, backup, expected])
-        state["install"] = {"active": active, "backup": backup, "candidate_sha256": expected}
+        result = self.ssh_script(
+            target,
+            script,
+            [candidate, code_host, active, active_host, backup, backup_host, expected, expected_host],
+        )
+        summary = self.last_json_output(result, "install")
+        summary.update(
+            {
+                "active": active,
+                "active_host": active_host,
+                "backup": backup,
+                "backup_host": backup_host,
+                "installed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            }
+        )
+        state["install"] = summary
+        self._write_json(self.evidence_dir(version) / "install.json", summary)
         state["gates"]["INSTALL"] = "PASS"
         state["stages"]["INSTALL_PASS"] = True
         self.save_state(version, state)
@@ -499,21 +628,50 @@ mv "$temporary" "$active"
         script = r'''set -eu
 active=$1
 backup=$2
+active_host=$3
+backup_host=$4
+old_host_present=$5
+expected=$6
+expected_host=$7
 [ -f "$backup" ] || exit 71
-expected=$(sha256sum "$backup" | awk '{print $1}')
 temporary="${active}.rollback.$$"
 cp -p "$backup" "$temporary"
 mv "$temporary" "$active"
 [ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || exit 72
-printf '%s\n' "$expected"
+if [ "$old_host_present" = true ]; then
+  [ -f "$backup_host" ] || exit 73
+  temporary_host="${active_host}.rollback.$$"
+  cp -p "$backup_host" "$temporary_host"
+  mv "$temporary_host" "$active_host"
+  [ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_host" ] || exit 74
+else
+  rm -f "$active_host"
+  [ ! -e "$active_host" ] || exit 75
+fi
+printf '{"codex_sha256":"%s","host_present":%s,"code_mode_host_sha256":"%s"}\n' "$expected" "$old_host_present" "$expected_host"
 '''
-        result = self.ssh_script(target, script, [install["active"], install["backup"]])
-        state["rollback_sha256"] = result.stdout.strip().splitlines()[-1]
+        result = self.ssh_script(
+            target,
+            script,
+            [
+                install["active"],
+                install["backup"],
+                install["active_host"],
+                install["backup_host"],
+                str(install["old_host_present"]).lower(),
+                install["old_codex_sha256"],
+                install["old_host_sha256"],
+            ],
+        )
+        summary = self.last_json_output(result, "rollback")
+        summary["completed_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        state["rollback"] = summary
+        self._write_json(self.evidence_dir(version) / "rollback.json", summary)
         state["gates"]["ROLLBACK"] = "PASS"
         state["stages"]["ROLLBACK_PASS"] = True
         self.save_state(version, state)
 
-    def promote(self, version: str, target: str, candidate: str, approve: bool) -> None:
+    def promote(self, version: str, target: str, candidate: str, code_host: str, approve: bool) -> None:
         if not approve:
             raise HarnessError("promotion requires --approve-promotion")
         state = self.load_state(version)
@@ -521,20 +679,39 @@ printf '%s\n' "$expected"
             raise HarnessError("a successful rollback proof is required before promotion")
         install = state["install"]
         expected = state["build"]["codex_sha256"]
+        expected_host = state["build"]["code_mode_host_sha256"]
         script = r'''set -eu
 candidate=$1
-active=$2
-expected=$3
+code_host=$2
+active=$3
+active_host=$4
+expected=$5
+expected_host=$6
 [ "$(sha256sum "$candidate" | awk '{print $1}')" = "$expected" ] || exit 81
+[ "$(sha256sum "$code_host" | awk '{print $1}')" = "$expected_host" ] || exit 83
 temporary="${active}.promote.$$"
+temporary_host="${active_host}.promote.$$"
 cp "$candidate" "$temporary"
+cp "$code_host" "$temporary_host"
 chmod --reference="$active" "$temporary"
+chmod --reference="$active" "$temporary_host"
+mv "$temporary_host" "$active_host"
 mv "$temporary" "$active"
 [ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || exit 82
+ [ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_host" ] || exit 84
 "$active" --version </dev/null
 '''
-        result = self.ssh_script(target, script, [candidate, install["active"], expected])
-        state["promotion"] = {"result": "PASS", "version_output": result.stdout.strip(), "codex_sha256": expected}
+        result = self.ssh_script(
+            target,
+            script,
+            [candidate, code_host, install["active"], install["active_host"], expected, expected_host],
+        )
+        state["promotion"] = {
+            "result": "PASS",
+            "version_output": result.stdout.strip(),
+            "codex_sha256": expected,
+            "code_mode_host_sha256": expected_host,
+        }
         state["gates"]["PROMOTION"] = "PASS"
         self.save_state(version, state)
 
@@ -604,6 +781,9 @@ def parser() -> argparse.ArgumentParser:
     patch = sub.add_parser("patch")
     patch.add_argument("--source", type=Path, required=True)
     patch.add_argument("--version", required=True)
+    adopt = sub.add_parser("adopt-source")
+    adopt.add_argument("--source", type=Path, required=True)
+    adopt.add_argument("--version", required=True)
     build = sub.add_parser("build")
     build.add_argument("--version", required=True)
     build.add_argument("--pixel", required=True)
@@ -633,7 +813,9 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument("--version", required=True)
     install.add_argument("--pixel", required=True)
     install.add_argument("--candidate", required=True)
+    install.add_argument("--code-host", required=True)
     install.add_argument("--active", required=True)
+    install.add_argument("--active-host", required=True)
     install.add_argument("--approve-install", action="store_true")
     rollback = sub.add_parser("rollback")
     rollback.add_argument("--version", required=True)
@@ -642,6 +824,7 @@ def parser() -> argparse.ArgumentParser:
     promote.add_argument("--version", required=True)
     promote.add_argument("--pixel", required=True)
     promote.add_argument("--candidate", required=True)
+    promote.add_argument("--code-host", required=True)
     promote.add_argument("--approve-promotion", action="store_true")
     record = sub.add_parser("record-qualified")
     record.add_argument("--version", required=True)
@@ -658,6 +841,7 @@ def parser() -> argparse.ArgumentParser:
     full.add_argument("--code-host")
     full.add_argument("--runtime-dir")
     full.add_argument("--active")
+    full.add_argument("--active-host")
     full.add_argument("--approve-install", action="store_true")
     full.add_argument("--approve-promotion", action="store_true")
     sub.add_parser("resume")
@@ -690,6 +874,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "patch":
             harness.apply_patches(args.source, args.version)
             print("PATCHED")
+        elif args.command == "adopt-source":
+            print(json.dumps(harness.adopt_source(args.source, args.version), indent=2))
         elif args.command == "build":
             print(json.dumps(harness.build(args.version, args.pixel, args.remote_source, args.v8_archive, args.v8_binding), indent=2))
         elif args.command == "import-build":
@@ -700,13 +886,21 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "qualify":
             print(json.dumps(harness.qualify(args.version, args.pixel, args.candidate, args.code_host, args.runtime_dir), indent=2))
         elif args.command == "install":
-            harness.install(args.version, args.pixel, args.candidate, args.active, args.approve_install)
+            harness.install(
+                args.version,
+                args.pixel,
+                args.candidate,
+                args.code_host,
+                args.active,
+                args.active_host,
+                args.approve_install,
+            )
             print("INSTALL_PASS")
         elif args.command == "rollback":
             harness.rollback(args.version, args.pixel)
             print("ROLLBACK_PASS")
         elif args.command == "promote":
-            harness.promote(args.version, args.pixel, args.candidate, args.approve_promotion)
+            harness.promote(args.version, args.pixel, args.candidate, args.code_host, args.approve_promotion)
             print("PROMOTION_PASS; stable tag remains a separate reviewed operation")
         elif args.command == "record-qualified":
             harness.record_qualified(args.version, args.active_version, args.active_hash, args.downstream_sha)
@@ -737,12 +931,20 @@ def main(argv: list[str] | None = None) -> int:
             if not args.approve_install:
                 print("RUNTIME_QUALIFIED; install requires --approve-install")
                 return 0
-            if not args.active:
-                raise HarnessError("--active is required with --approve-install")
-            harness.install(update["latest_version"], args.pixel, args.candidate, args.active, True)
+            if not args.active or not args.active_host:
+                raise HarnessError("--active and --active-host are required with --approve-install")
+            harness.install(
+                update["latest_version"],
+                args.pixel,
+                args.candidate,
+                args.code_host,
+                args.active,
+                args.active_host,
+                True,
+            )
             harness.rollback(update["latest_version"], args.pixel)
             if args.approve_promotion:
-                harness.promote(update["latest_version"], args.pixel, args.candidate, True)
+                harness.promote(update["latest_version"], args.pixel, args.candidate, args.code_host, True)
             else:
                 print("ROLLBACK_PASS; final promotion requires --approve-promotion")
         return 0
