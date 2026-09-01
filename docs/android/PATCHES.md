@@ -3,14 +3,14 @@
 Machine-readable metadata is in `android/patches.json`; lossless patch files
 are in `android/patches/`.
 
-| Patch | Original failure | Preserved semantics | Removal condition |
-|---|---|---|---|
-| Android TLS alignment | Native Android executable TLS alignment risk | Android-only aligned `.tdata`; other targets unchanged | Upstream/toolchain guarantees and tests required alignment |
-| Termux protoc | Vendored protoc has no Android/aarch64 binary | `PROTOC` override, Termux PATH on Android, vendored desktop fallback | Upstream provides an Android protoc path or removes the build-time need |
-| Lazy protoc selection | Unsupported vendored path evaluated eagerly | Only selected provider is evaluated | Upstream selection is lazy and Android-capable |
-| App-server startup flock | `lock() not supported` before app-server startup | Blocking advisory exclusion, EINTR retry, close releases lock | Rust std lock works on Android or upstream supplies equivalent tests |
-| Installation-ID flock | installation-ID initialization lock unsupported | Cross-process blocking coordination; non-Unix unchanged | Same as above for installation identity |
-| Thread-store flock | persistence/resume failed at lock/try_lock | Blocking coordination; `LOCK_NB` maps contention to `WouldBlock` | Upstream supplies equivalent Android writer-lock behavior |
+| Patch | Current upstream status | Original failure | Preserved semantics | Removal condition |
+|---|---|---|---|---|
+| Android TLS alignment | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | Native Android executable TLS alignment risk | Android-only aligned `.tdata`; other targets unchanged | Upstream/toolchain guarantees and tests required alignment |
+| Termux protoc | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | Vendored protoc has no Android/aarch64 binary | `PROTOC` override, Termux PATH on Android, vendored desktop fallback | Upstream provides an Android protoc path or removes the build-time need |
+| Lazy protoc selection | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | Unsupported vendored path evaluated eagerly | Only selected provider is evaluated | Upstream selection is lazy and Android-capable |
+| App-server startup flock | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | `lock() not supported` before app-server startup | Blocking advisory exclusion, EINTR retry, close releases lock | Rust std lock works on Android or upstream supplies equivalent tests |
+| Installation-ID flock | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | installation-ID initialization lock unsupported | Cross-process blocking coordination; non-Unix unchanged | Same as above for installation identity |
+| Thread-store flock | `REQUIRED_UNCHANGED` on `rust-v0.153.0-alpha.2` | persistence/resume failed at lock/try_lock | Blocking coordination; `LOCK_NB` maps contention to `WouldBlock` | Upstream supplies equivalent Android writer-lock behavior |
 
 For every new OpenAI tag, `classify` reports one of:
 
