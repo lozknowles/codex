@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "first_downstream_release": "0.152.0-alpha.4-loz.android.1",
+  "patches": [
+    {
+      "id": "android-tls-alignment",
+      "order": 1,
+      "patch": "android/patches/0001-android-tls-alignment.patch",
+      "commit": "e9d1e73ed2153d0c033a3feecc0449d7a75d3f11",
+      "purpose": "Force Android-compatible 64-byte executable TLS alignment.",
+      "failure": "Android loader/runtime compatibility risk for native executables.",
+      "files": ["codex-rs/cli/src/main.rs", "codex-rs/cli/src/android_tls_alignment.rs", "codex-rs/code-mode-host/src/main.rs", "codex-rs/code-mode-host/src/android_tls_alignment.rs"],
+      "semantics": "No non-Android behavior change; Android binaries contain an aligned .tdata item.",
+      "regression_test": "readelf -lW and native launch/version smoke",
+      "qualification_gate": "Q2,Q3,Q5",
+      "removal_condition": "OpenAI or the Rust/linker toolchain guarantees and tests the required Android TLS alignment.",
+      "superseded_by": null
+    },
+    {
+      "id": "termux-protoc",
+      "order": 2,
+      "patch": "android/patches/0002-termux-protoc.patch",
+      "commit": "0ef18d9fda56ec4a1dbac09fea2926d760f16eeb",
+      "purpose": "Use a trusted native Termux protoc because protoc-bin-vendored has no Android/aarch64 binary.",
+      "failure": "code-mode-protocol build cannot locate a vendored protoc for Android/aarch64.",
+      "files": ["codex-rs/code-mode-protocol/build.rs"],
+      "semantics": "PROTOC override wins; Android uses PATH protoc; desktop retains vendored protoc.",
+      "regression_test": "cargo check -p codex-code-mode-protocol --target aarch64-linux-android",
+      "qualification_gate": "Q2",
+      "removal_condition": "Upstream provides an Android protoc strategy or no longer builds protobufs on the Android target.",
+      "superseded_by": null
+    },
+    {
+      "id": "termux-protoc-lazy-selection",
+      "order": 3,
+      "patch": "android/patches/0003-termux-protoc-lazy-selection.patch",
+      "commit": "393d25d19a91958ee4152fb2770fcee2b231919f",
+      "purpose": "Avoid eagerly evaluating the unsupported vendored protoc fallback on Android.",
+      "failure": "unwrap_or eagerly calls protoc_bin_path even when the Android PATH protoc was selected.",
+      "files": ["codex-rs/code-mode-protocol/build.rs"],
+      "semantics": "Only the selected protoc provider is evaluated.",
+      "regression_test": "cargo check -p codex-code-mode-protocol --target aarch64-linux-android",
+      "qualification_gate": "Q2",
+      "removal_condition": "The upstream selection is lazy and works on Android/aarch64.",
+      "superseded_by": null
+    },
+    {
+      "id": "app-server-startup-flock",
+      "order": 4,
+      "patch": "android/patches/0004-app-server-startup-flock.patch",
+      "commit": "4902a7fc1eb1d9caabb4ae2402192e2cc8c57c76",
+      "purpose": "Preserve exclusive app-server startup coordination on Android.",
+      "failure": "failed to initialize in-process app-server client: lock() not supported",
+      "files": ["codex-rs/app-server-transport/Cargo.toml", "codex-rs/app-server-transport/src/transport/unix_socket.rs"],
+      "semantics": "Blocking advisory exclusion, EINTR retry, release on descriptor close; non-Unix unchanged.",
+      "regression_test": "app_server_startup_lock_serializes_waiters",
+      "qualification_gate": "Q3,Q9",
+      "removal_condition": "Rust std File::lock works on Android or upstream supplies equivalent tested coordination.",
+      "superseded_by": null
+    },
+    {
+      "id": "installation-id-flock",
+      "order": 5,
+      "patch": "android/patches/0005-installation-id-flock.patch",
+      "commit": "5c567feba1651947505598593005080abfa398c0",
+      "purpose": "Preserve cross-process installation-ID initialization on Android.",
+      "failure": "installation ID initialization fails with lock() not supported",
+      "files": ["codex-rs/core/src/installation_id.rs"],
+      "semantics": "Blocking advisory exclusion, EINTR retry and release on descriptor close; non-Unix unchanged.",
+      "regression_test": "resolve_installation_id focused tests",
+      "qualification_gate": "Q3,Q9",
+      "removal_condition": "Rust std File::lock works on Android or upstream supplies equivalent tested coordination.",
+      "superseded_by": null
+    },
+    {
+      "id": "thread-store-flock",
+      "order": 6,
+      "patch": "android/patches/0006-thread-store-flock.patch",
+      "commit": "5db8949c1432b85d3b2c67e39e6e7cb98ea8caf9",
+      "purpose": "Preserve thread-store writer coordination and nonblocking conflict detection on Android.",
+      "failure": "persistent session creation/resume fails because lock and try_lock are unsupported",
+      "files": ["codex-rs/thread-store/Cargo.toml", "codex-rs/thread-store/src/local/writer_lock.rs"],
+      "semantics": "Blocking coordination plus LOCK_NB conflicts mapped to TryLockError::WouldBlock; non-Unix unchanged.",
+      "regression_test": "writer_locks_reject_competing_owners_and_release_their_files",
+      "qualification_gate": "Q6,Q7,Q8,Q9",
+      "removal_condition": "Rust std locks work on Android or upstream supplies equivalent tested writer coordination.",
+      "superseded_by": null
+    }
+  ]
+}

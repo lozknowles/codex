@@ -1,0 +1,74 @@
+From e9d1e73ed2153d0c033a3feecc0449d7a75d3f11 Mon Sep 17 00:00:00 2001
+From: Codex Controlled Distribution Audit <codex-controlled-audit@localhost>
+Date: Sun, 30 Aug 2026 16:08:55 +0100
+Subject: [PATCH] experiment: forward-port Android TLS alignment
+
+---
+ codex-rs/cli/src/android_tls_alignment.rs            | 9 +++++++++
+ codex-rs/cli/src/main.rs                             | 2 ++
+ codex-rs/code-mode-host/src/android_tls_alignment.rs | 9 +++++++++
+ codex-rs/code-mode-host/src/main.rs                  | 3 +++
+ 4 files changed, 23 insertions(+)
+ create mode 100644 codex-rs/cli/src/android_tls_alignment.rs
+ create mode 100644 codex-rs/code-mode-host/src/android_tls_alignment.rs
+
+diff --git a/codex-rs/cli/src/android_tls_alignment.rs b/codex-rs/cli/src/android_tls_alignment.rs
+new file mode 100644
+index 000000000..3301f3c6a
+--- /dev/null
++++ b/codex-rs/cli/src/android_tls_alignment.rs
+@@ -0,0 +1,9 @@
++//! Android requires executable TLS segments to be aligned to 64 bytes.
++
++#[repr(align(64))]
++#[allow(dead_code)]
++struct AndroidTlsAlignment([u8; 64]);
++
++#[used]
++#[unsafe(link_section = ".tdata")]
++static ANDROID_TLS_ALIGNMENT: AndroidTlsAlignment = AndroidTlsAlignment([0; 64]);
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index 0bfea0449..533aafaa1 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -45,6 +45,8 @@ use supports_color::Stream;
+ 
+ #[cfg(any(target_os = "macos", target_os = "windows"))]
+ mod app_cmd;
++#[cfg(target_os = "android")]
++mod android_tls_alignment;
+ mod cloud_config;
+ #[cfg(any(target_os = "macos", target_os = "windows"))]
+ mod desktop_app;
+diff --git a/codex-rs/code-mode-host/src/android_tls_alignment.rs b/codex-rs/code-mode-host/src/android_tls_alignment.rs
+new file mode 100644
+index 000000000..3301f3c6a
+--- /dev/null
++++ b/codex-rs/code-mode-host/src/android_tls_alignment.rs
+@@ -0,0 +1,9 @@
++//! Android requires executable TLS segments to be aligned to 64 bytes.
++
++#[repr(align(64))]
++#[allow(dead_code)]
++struct AndroidTlsAlignment([u8; 64]);
++
++#[used]
++#[unsafe(link_section = ".tdata")]
++static ANDROID_TLS_ALIGNMENT: AndroidTlsAlignment = AndroidTlsAlignment([0; 64]);
+diff --git a/codex-rs/code-mode-host/src/main.rs b/codex-rs/code-mode-host/src/main.rs
+index 81ffb3ae7..7bac12588 100644
+--- a/codex-rs/code-mode-host/src/main.rs
++++ b/codex-rs/code-mode-host/src/main.rs
+@@ -13,6 +13,9 @@ use tracing_subscriber::Layer;
+ use tracing_subscriber::layer::SubscriberExt;
+ use tracing_subscriber::util::SubscriberInitExt;
+ 
++#[cfg(target_os = "android")]
++mod android_tls_alignment;
++
+ const OTEL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(/*secs*/ 5);
+ 
+ #[derive(Debug, Parser)]
+-- 
+2.53.0.windows.3
+
