@@ -1,0 +1,20 @@
+{
+  "gates": {
+    "ANDROID_TLS": "PASS",
+    "APP_SERVER": "PASS",
+    "AUTHENTICATED_EXECUTION": "PASS",
+    "BUILD": "PASS",
+    "INSTALL": "NOT_RUN",
+    "LOCKING": "PASS_RUNTIME_PATHS_PENDING_FOCUSED",
+    "PERSISTENCE": "PASS",
+    "PROMOTION": "NOT_RUN",
+    "PROVENANCE": "PASS",
+    "RESUME": "PASS",
+    "ROLLBACK": "NOT_RUN",
+    "SSH_RECONNECT": "PASS"
+  },
+  "target": "loz@100.100.97.118",
+  "thread_id": "01a05b80-8f4d-79d1-b6ec-1e96c1f78ba0",
+  "verdict": "RUNTIME_PASS",
+  "version": "0.152.0-alpha.4"
+}
