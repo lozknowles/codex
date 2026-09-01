@@ -1,0 +1,10 @@
+{
+  "code_mode_host_bytes": 169650064,
+  "code_mode_host_sha256": "b9956f2138b5a231ac0ce9a7311a94f2318c1cc302c532ac65468c8ef58dbb79",
+  "codex_bytes": 669200352,
+  "codex_sha256": "06d75b8dcf20ee2a6e1bbc0e3b8096134910646454751086ec30fccc26ab92ba",
+  "imported_at": "2026-09-01T05:42:52.048010+00:00",
+  "source_sha": "5db8949c1432b85d3b2c67e39e6e7cb98ea8caf9",
+  "target": "loz@100.100.97.118",
+  "version": "codex-cli 0.152.0-alpha.4"
+}
