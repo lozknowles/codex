@@ -388,10 +388,10 @@ v8_binding=$4
 cd "$source_dir"
 [ "$(git rev-parse HEAD)" = "$expected_sha" ] || exit 45
 export RUSTY_V8_ARCHIVE="$v8_archive" RUSTY_V8_SRC_BINDING_PATH="$v8_binding"
-export CARGO_INCREMENTAL=1 CARGO_PROFILE_DEV_DEBUG=0
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-thread-store writer_locks --lib -j2 </dev/null
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-app-server-transport app_server_startup_lock_serializes_waiters --lib -j2 </dev/null
-cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android -p codex-core resolve_installation_id --lib -j2 </dev/null
+export CARGO_INCREMENTAL=1 CARGO_PROFILE_RELEASE_DEBUG=0
+cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-thread-store writer_locks --lib -j2 </dev/null
+cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-app-server-transport app_server_startup_lock_serializes_waiters --lib -j2 </dev/null
+cargo test --manifest-path codex-rs/Cargo.toml --target aarch64-linux-android --release -p codex-core resolve_installation_id --lib -j2 </dev/null
 '''
         result = self.ssh_script(target, script, [remote_source, expected_sha, v8_archive, v8_binding])
         evidence = {
