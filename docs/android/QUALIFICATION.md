@@ -14,9 +14,9 @@ exact recorded source and binary hashes.
 | Q7 Resume | Exact thread resumes and performs a second marker action |
 | Q8 SSH reconnect | Q7 is performed through a new SSH process/connection |
 | Q9 Locking | Focused Rust lock tests and real runtime lock paths pass, including `WouldBlock` |
-| Q10 Install | Existing binary is backed up; candidate is atomically installed and rehashed |
-| Q11 Rollback | Exact backup is atomically restored and reverified |
-| Q12 Promotion | Separate approval reinstalls the proven candidate; final smoke passes |
+| Q10 Install | Existing Codex and host state is backed up; both candidates are atomically installed and rehashed |
+| Q11 Rollback | Exact prior Codex/host state is restored and reverified; recovery artefacts remain available |
+| Q12 Promotion | Separate approval reinstalls both proven binaries; final version/host smoke passes |
 
 `qualify` deliberately uses separate SSH invocations for initial execution and
 resume. It does not substitute `curl` for authenticated Codex execution.

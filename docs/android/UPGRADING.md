@@ -33,7 +33,9 @@ Install and rollback proof require explicit authority:
 ```bash
 ./scripts/android/update-codex-android install \
   --version VERSION --pixel pixel-termux --candidate /path/to/codex \
-  --active /data/data/com.termux/files/usr/libexec/codex-termux-local/codex \
+  --code-host /path/to/codex-code-mode-host \
+  --active /data/data/com.termux/files/usr/libexec/codex-termux-local/codex.bin \
+  --active-host /data/data/com.termux/files/usr/libexec/codex-termux-local/codex-code-mode-host \
   --approve-install
 
 ./scripts/android/update-codex-android rollback --version VERSION --pixel pixel-termux
@@ -44,6 +46,7 @@ Final activation is separately approved:
 ```bash
 ./scripts/android/update-codex-android promote \
   --version VERSION --pixel pixel-termux --candidate /path/to/codex \
+  --code-host /path/to/codex-code-mode-host \
   --approve-promotion
 ```
 

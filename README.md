@@ -77,5 +77,20 @@ You can also use Codex with an API key, but this requires [additional setup](htt
 - [**Contributing**](./docs/contributing.md)
 - [**Installing & building**](./docs/install.md)
 - [**Open source fund**](./docs/open-source-fund.md)
+- [**Android / Termux downstream**](./docs/android/README.md)
+
+## Android / Termux downstream release
+
+This fork carries a deterministic evergreen update harness and the smallest
+qualified compatibility patch set needed to run Codex natively in Termux on
+the Pixel 8 Pro. OpenAI remains authoritative; Android patches are reconsidered
+against every new `rust-v*` tag and removed when upstream makes them obsolete.
+
+The current Android release line is based on OpenAI
+`rust-v0.153.0-alpha.2` (`73919571da608749b867134722fe3b42c1c6097f`). Start
+with [the Android guide](./docs/android/README.md), then follow the documented
+[upgrade](./docs/android/UPGRADING.md),
+[qualification](./docs/android/QUALIFICATION.md), and
+[recovery](./docs/android/RECOVERY.md) procedures.
 
 This repository is licensed under the [Apache-2.0 License](LICENSE).

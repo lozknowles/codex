@@ -177,8 +177,13 @@ class Harness:
         result = self.check(remote)
         result["active_pixel_version"] = self.manifest["android"]["active_version"]
         result["candidate_verdict"] = self.manifest["last_candidate"]["verdict"]
+        state = self.load_state(result["latest_version"])
+        recorded = {
+            patch["id"]: patch["status"]
+            for patch in state.get("patch_classification", {}).get("patches", [])
+        }
         result["patches"] = [
-            {"id": patch["id"], "status": "REVIEW_REQUIRED"}
+            {"id": patch["id"], "status": recorded.get(patch["id"], "REVIEW_REQUIRED")}
             for patch in self.patch_config["patches"]
         ]
         return result
@@ -461,7 +466,16 @@ printf '{"thread_id":"%s","resume":"PASS"}\n' "$thread_id"
         self.save_state(version, state)
         return summary
 
-    def install(self, version: str, target: str, candidate: str, active: str, approve: bool) -> None:
+    def install(
+        self,
+        version: str,
+        target: str,
+        candidate: str,
+        code_host: str,
+        active: str,
+        active_host: str,
+        approve: bool,
+    ) -> None:
         if not approve:
             raise HarnessError("install requires --approve-install")
         state = self.load_state(version)
@@ -469,24 +483,63 @@ printf '{"thread_id":"%s","resume":"PASS"}\n' "$thread_id"
         if any(not state["gates"].get(gate, "").startswith("PASS") for gate in required) or state["gates"].get("LOCKING") != "PASS_FOCUSED_AND_RUNTIME":
             raise HarnessError("all runtime qualification gates must pass before install")
         expected = state["build"]["codex_sha256"]
+        expected_host = state["build"]["code_mode_host_sha256"]
         backup = f"{active}.backup-{version}"
+        host_backup = f"{active_host}.backup-{version}"
         script = r'''set -eu
 candidate=$1
-active=$2
-backup=$3
-expected=$4
+code_host=$2
+active=$3
+active_host=$4
+backup=$5
+host_backup=$6
+expected=$7
+expected_host=$8
 [ "$(sha256sum "$candidate" | awk '{print $1}')" = "$expected" ] || exit 61
+[ "$(sha256sum "$code_host" | awk '{print $1}')" = "$expected_host" ] || exit 65
 [ -f "$active" ] || exit 62
 [ ! -e "$backup" ] || exit 63
+[ ! -e "$host_backup" ] || exit 66
 cp -p "$active" "$backup"
+host_preexisting=false
+if [ -f "$active_host" ]; then
+  cp -p "$active_host" "$host_backup"
+  host_preexisting=true
+fi
 temporary="${active}.new.$$"
+host_temporary="${active_host}.new.$$"
 cp "$candidate" "$temporary"
 chmod --reference="$active" "$temporary"
+cp "$code_host" "$host_temporary"
+if [ "$host_preexisting" = true ]; then
+  chmod --reference="$active_host" "$host_temporary"
+else
+  chmod 755 "$host_temporary"
+fi
 mv "$temporary" "$active"
-[ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || { cp -p "$backup" "$active"; exit 64; }
+mv "$host_temporary" "$active_host"
+if [ "$(sha256sum "$active" | awk '{print $1}')" != "$expected" ] ||
+   [ "$(sha256sum "$active_host" | awk '{print $1}')" != "$expected_host" ]; then
+  cp -p "$backup" "$active"
+  if [ "$host_preexisting" = true ]; then cp -p "$host_backup" "$active_host"; else mv "$active_host" "${active_host}.failed-install.$$"; fi
+  exit 64
+fi
+printf '{"host_preexisting":%s}\n' "$host_preexisting"
 '''
-        self.ssh_script(target, script, [candidate, active, backup, expected])
-        state["install"] = {"active": active, "backup": backup, "candidate_sha256": expected}
+        result = self.ssh_script(
+            target,
+            script,
+            [candidate, code_host, active, active_host, backup, host_backup, expected, expected_host],
+        )
+        summary = self.last_json_output(result, "install")
+        state["install"] = {
+            "active": active,
+            "active_host": active_host,
+            "backup": backup,
+            "host_backup": host_backup if summary["host_preexisting"] else None,
+            "candidate_sha256": expected,
+            "code_mode_host_sha256": expected_host,
+        }
         state["gates"]["INSTALL"] = "PASS"
         state["stages"]["INSTALL_PASS"] = True
         self.save_state(version, state)
@@ -499,21 +552,50 @@ mv "$temporary" "$active"
         script = r'''set -eu
 active=$1
 backup=$2
+active_host=$3
+host_backup=$4
+expected_host=$5
+host_recovery=$6
 [ -f "$backup" ] || exit 71
 expected=$(sha256sum "$backup" | awk '{print $1}')
 temporary="${active}.rollback.$$"
 cp -p "$backup" "$temporary"
 mv "$temporary" "$active"
 [ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || exit 72
-printf '%s\n' "$expected"
+if [ -n "$host_backup" ]; then
+  [ -f "$host_backup" ] || exit 73
+  expected_previous_host=$(sha256sum "$host_backup" | awk '{print $1}')
+  host_temporary="${active_host}.rollback.$$"
+  cp -p "$host_backup" "$host_temporary"
+  mv "$host_temporary" "$active_host"
+  [ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_previous_host" ] || exit 74
+else
+  [ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_host" ] || exit 75
+  mv "$active_host" "$host_recovery"
+  expected_previous_host="ABSENT"
+fi
+printf '{"codex_sha256":"%s","code_mode_host_sha256":"%s","host_recovery":"%s"}\n' \
+  "$expected" "$expected_previous_host" "$host_recovery"
 '''
-        result = self.ssh_script(target, script, [install["active"], install["backup"]])
-        state["rollback_sha256"] = result.stdout.strip().splitlines()[-1]
+        host_recovery = f'{install["active_host"]}.rollback-artifact-{version}'
+        result = self.ssh_script(
+            target,
+            script,
+            [
+                install["active"],
+                install["backup"],
+                install["active_host"],
+                install.get("host_backup") or "",
+                install["code_mode_host_sha256"],
+                host_recovery,
+            ],
+        )
+        state["rollback"] = self.last_json_output(result, "rollback")
         state["gates"]["ROLLBACK"] = "PASS"
         state["stages"]["ROLLBACK_PASS"] = True
         self.save_state(version, state)
 
-    def promote(self, version: str, target: str, candidate: str, approve: bool) -> None:
+    def promote(self, version: str, target: str, candidate: str, code_host: str, approve: bool) -> None:
         if not approve:
             raise HarnessError("promotion requires --approve-promotion")
         state = self.load_state(version)
@@ -521,28 +603,45 @@ printf '%s\n' "$expected"
             raise HarnessError("a successful rollback proof is required before promotion")
         install = state["install"]
         expected = state["build"]["codex_sha256"]
+        expected_host = state["build"]["code_mode_host_sha256"]
         script = r'''set -eu
 candidate=$1
-active=$2
-expected=$3
+code_host=$2
+active=$3
+active_host=$4
+expected=$5
+expected_host=$6
 [ "$(sha256sum "$candidate" | awk '{print $1}')" = "$expected" ] || exit 81
+[ "$(sha256sum "$code_host" | awk '{print $1}')" = "$expected_host" ] || exit 83
 temporary="${active}.promote.$$"
+host_temporary="${active_host}.promote.$$"
 cp "$candidate" "$temporary"
 chmod --reference="$active" "$temporary"
+cp "$code_host" "$host_temporary"
+chmod 755 "$host_temporary"
 mv "$temporary" "$active"
+mv "$host_temporary" "$active_host"
 [ "$(sha256sum "$active" | awk '{print $1}')" = "$expected" ] || exit 82
-"$active" --version </dev/null
+[ "$(sha256sum "$active_host" | awk '{print $1}')" = "$expected_host" ] || exit 84
+version_output=$("$active" --version </dev/null)
+"$active_host" --help </dev/null >/dev/null
+printf '{"version_output":"%s","codex_sha256":"%s","code_mode_host_sha256":"%s"}\n' \
+  "$version_output" "$expected" "$expected_host"
 '''
-        result = self.ssh_script(target, script, [candidate, install["active"], expected])
-        state["promotion"] = {"result": "PASS", "version_output": result.stdout.strip(), "codex_sha256": expected}
+        result = self.ssh_script(
+            target,
+            script,
+            [candidate, code_host, install["active"], install["active_host"], expected, expected_host],
+        )
+        state["promotion"] = {"result": "PASS", **self.last_json_output(result, "promotion")}
         state["gates"]["PROMOTION"] = "PASS"
         self.save_state(version, state)
 
     def record_qualified(self, version: str, active_version: str, active_hash: str, downstream_sha: str) -> None:
         state = self.load_state(version)
-        mandatory = [gate for gate in GATES if gate != "PROMOTION"]
+        mandatory = GATES
         if any(not state["gates"].get(gate, "").startswith("PASS") for gate in mandatory):
-            raise HarnessError("cannot update the qualified manifest until all pre-promotion gates pass")
+            raise HarnessError("cannot update the qualified manifest until all release gates pass")
         manifest = self._read_json(self.manifest_path)
         source = state.get("source", {})
         manifest["last_qualified_openai"] = {
@@ -550,6 +649,7 @@ mv "$temporary" "$active"
             "version": version,
             "sha": source.get("upstream_sha"),
         }
+        manifest["last_inspected_openai"] = manifest["last_qualified_openai"].copy()
         manifest["last_candidate"] = {
             "tag": source.get("tag", f"rust-v{version}"),
             "version": version,
@@ -560,6 +660,9 @@ mv "$temporary" "$active"
         }
         manifest["android"]["active_version"] = active_version
         manifest["android"]["active_codex_sha256"] = active_hash
+        manifest["android"]["active_code_mode_host_sha256"] = state["build"]["code_mode_host_sha256"]
+        manifest["android"]["active_codex_path"] = state["install"]["active"]
+        manifest["android"]["active_code_mode_host_path"] = state["install"]["active_host"]
         manifest["artifacts"] = state["build"]
         manifest["updated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         self._write_json(self.manifest_path, manifest)
@@ -633,7 +736,9 @@ def parser() -> argparse.ArgumentParser:
     install.add_argument("--version", required=True)
     install.add_argument("--pixel", required=True)
     install.add_argument("--candidate", required=True)
+    install.add_argument("--code-host", required=True)
     install.add_argument("--active", required=True)
+    install.add_argument("--active-host", required=True)
     install.add_argument("--approve-install", action="store_true")
     rollback = sub.add_parser("rollback")
     rollback.add_argument("--version", required=True)
@@ -642,6 +747,7 @@ def parser() -> argparse.ArgumentParser:
     promote.add_argument("--version", required=True)
     promote.add_argument("--pixel", required=True)
     promote.add_argument("--candidate", required=True)
+    promote.add_argument("--code-host", required=True)
     promote.add_argument("--approve-promotion", action="store_true")
     record = sub.add_parser("record-qualified")
     record.add_argument("--version", required=True)
@@ -658,6 +764,7 @@ def parser() -> argparse.ArgumentParser:
     full.add_argument("--code-host")
     full.add_argument("--runtime-dir")
     full.add_argument("--active")
+    full.add_argument("--active-host")
     full.add_argument("--approve-install", action="store_true")
     full.add_argument("--approve-promotion", action="store_true")
     sub.add_parser("resume")
@@ -674,7 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     harness = Harness(args.root, ssh_options=ssh_options)
     try:
         if args.command == "check":
-            print_status(harness.check(args.remote, record=True))
+            print_status(harness.check(args.remote))
         elif args.command == "status":
             print_status(harness.status(args.remote))
         elif args.command == "prepare":
@@ -700,13 +807,21 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "qualify":
             print(json.dumps(harness.qualify(args.version, args.pixel, args.candidate, args.code_host, args.runtime_dir), indent=2))
         elif args.command == "install":
-            harness.install(args.version, args.pixel, args.candidate, args.active, args.approve_install)
+            harness.install(
+                args.version,
+                args.pixel,
+                args.candidate,
+                args.code_host,
+                args.active,
+                args.active_host,
+                args.approve_install,
+            )
             print("INSTALL_PASS")
         elif args.command == "rollback":
             harness.rollback(args.version, args.pixel)
             print("ROLLBACK_PASS")
         elif args.command == "promote":
-            harness.promote(args.version, args.pixel, args.candidate, args.approve_promotion)
+            harness.promote(args.version, args.pixel, args.candidate, args.code_host, args.approve_promotion)
             print("PROMOTION_PASS; stable tag remains a separate reviewed operation")
         elif args.command == "record-qualified":
             harness.record_qualified(args.version, args.active_version, args.active_hash, args.downstream_sha)
@@ -737,12 +852,20 @@ def main(argv: list[str] | None = None) -> int:
             if not args.approve_install:
                 print("RUNTIME_QUALIFIED; install requires --approve-install")
                 return 0
-            if not args.active:
-                raise HarnessError("--active is required with --approve-install")
-            harness.install(update["latest_version"], args.pixel, args.candidate, args.active, True)
+            if not args.active or not args.active_host:
+                raise HarnessError("--active and --active-host are required with --approve-install")
+            harness.install(
+                update["latest_version"],
+                args.pixel,
+                args.candidate,
+                args.code_host,
+                args.active,
+                args.active_host,
+                True,
+            )
             harness.rollback(update["latest_version"], args.pixel)
             if args.approve_promotion:
-                harness.promote(update["latest_version"], args.pixel, args.candidate, True)
+                harness.promote(update["latest_version"], args.pixel, args.candidate, args.code_host, True)
             else:
                 print("ROLLBACK_PASS; final promotion requires --approve-promotion")
         return 0

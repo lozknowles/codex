@@ -158,7 +158,46 @@ class HarnessTest(unittest.TestCase):
 
     def test_install_is_fail_closed_without_approval(self):
         with self.assertRaisesRegex(MODULE.HarnessError, "approve-install"):
-            self.harness().install("0.153.0", "pixel", "/candidate", "/active", False)
+            self.harness().install(
+                "0.153.0", "pixel", "/candidate", "/host", "/active", "/active-host", False
+            )
+
+    def test_install_rollback_and_promotion_track_both_binaries(self):
+        runner = FakeRunner(
+            [
+                completed('{"host_preexisting":false}\n'),
+                completed(
+                    '{"codex_sha256":"old","code_mode_host_sha256":"ABSENT",'
+                    '"host_recovery":"/active-host.rollback-artifact-0.153.0"}\n'
+                ),
+                completed(
+                    '{"version_output":"codex-cli 0.153.0",'
+                    f'"codex_sha256":"{"c" * 64}",'
+                    f'"code_mode_host_sha256":"{"d" * 64}"}}\n'
+                ),
+            ]
+        )
+        harness = self.harness(runner)
+        state = harness.load_state("0.153.0")
+        state["build"] = {"codex_sha256": "c" * 64, "code_mode_host_sha256": "d" * 64}
+        required = [gate for gate in MODULE.GATES if gate not in {"INSTALL", "ROLLBACK", "PROMOTION"}]
+        state["gates"].update({gate: "PASS" for gate in required})
+        state["gates"]["LOCKING"] = "PASS_FOCUSED_AND_RUNTIME"
+        harness.save_state("0.153.0", state)
+
+        harness.install(
+            "0.153.0", "pixel", "/candidate", "/host", "/active", "/active-host", True
+        )
+        harness.rollback("0.153.0", "pixel")
+        harness.promote("0.153.0", "pixel", "/candidate", "/host", True)
+
+        updated = harness.load_state("0.153.0")
+        self.assertEqual(updated["gates"]["INSTALL"], "PASS")
+        self.assertEqual(updated["gates"]["ROLLBACK"], "PASS")
+        self.assertEqual(updated["gates"]["PROMOTION"], "PASS")
+        self.assertEqual(updated["install"]["active_host"], "/active-host")
+        self.assertIsNone(updated["install"]["host_backup"])
+        self.assertEqual(updated["promotion"]["code_mode_host_sha256"], "d" * 64)
 
     def test_build_failure_does_not_mark_build_pass(self):
         harness = self.harness(FakeRunner([completed(stderr="compile failed", returncode=1)]))
@@ -183,7 +222,7 @@ class HarnessTest(unittest.TestCase):
             self.harness().last_json_output(completed(), "qualification")
 
     def test_manifest_update_requires_all_gates(self):
-        with self.assertRaisesRegex(MODULE.HarnessError, "all pre-promotion gates"):
+        with self.assertRaisesRegex(MODULE.HarnessError, "all release gates"):
             self.harness().record_qualified("0.153.0", "0.153.0-loz.android.1", "c" * 64, "d" * 40)
 
     def test_manifest_update_after_install_and_rollback(self):
@@ -191,12 +230,15 @@ class HarnessTest(unittest.TestCase):
         state = harness.load_state("0.153.0")
         state["source"] = {"tag": "rust-v0.153.0", "upstream_sha": "a" * 40}
         state["build"] = {"codex_sha256": "c" * 64, "code_mode_host_sha256": "e" * 64}
-        state["gates"].update({gate: "PASS" for gate in MODULE.GATES if gate != "PROMOTION"})
+        state["install"] = {"active": "/active", "active_host": "/active-host"}
+        state["gates"].update({gate: "PASS" for gate in MODULE.GATES})
         harness.save_state("0.153.0", state)
         harness.record_qualified("0.153.0", "0.153.0-loz.android.1", "c" * 64, "d" * 40)
         updated = json.loads((self.root / "android" / "downstream-manifest.json").read_text())
         self.assertEqual(updated["last_qualified_openai"]["version"], "0.153.0")
+        self.assertEqual(updated["last_inspected_openai"]["version"], "0.153.0")
         self.assertEqual(updated["android"]["active_version"], "0.153.0-loz.android.1")
+        self.assertEqual(updated["android"]["active_code_mode_host_sha256"], "e" * 64)
 
     def test_no_command_creates_a_stable_tag(self):
         commands = {action.dest: action for action in MODULE.parser()._actions if action.dest == "command"}

@@ -28,10 +28,14 @@ tests and evidence. Do not resolve a conflict merely to preserve history.
 
 ## Failed install
 
-The install command writes a temporary binary and moves it atomically. If its
-post-install hash fails, it restores the recorded backup. If manual recovery is
-required, verify the backup hash first, copy it to a temporary file beside the
-active executable, preserve permissions, then rename it atomically.
+The install command writes temporary `codex` and `codex-code-mode-host`
+binaries and moves each into place atomically. If either post-install hash
+fails, it restores the recorded state. If manual recovery is required, verify
+the backup hashes first, copy each to a temporary file beside the active
+executable, preserve permissions, then rename it atomically. When the previous
+release had no code-mode host, rollback preserves the candidate host under the
+recorded recovery path and restores the previous absence without deleting the
+artefact.
 
 Never remove the known-good backup until the next release has passed install,
 rollback, final promotion, and post-promotion smoke tests.
