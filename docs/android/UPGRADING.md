@@ -53,6 +53,34 @@ Final activation is separately approved:
 After final smoke tests, `record-qualified` updates the manifest. Stable tag
 creation and pushing remain separate reviewed Git operations.
 
+## Repeatable next-update path
+
+The complete path for `0.154`, `0.155`, and later releases is:
+
+```text
+detect latest OpenAI release
+ -> prepare exact upstream source
+ -> classify surviving Android patches
+ -> build
+ -> Pixel qualification
+ -> install
+ -> rollback proof
+ -> promotion
+ -> release
+ -> UP_TO_DATE
+```
+
+Start the next update with:
+
+```bash
+./scripts/android/update-codex-android full
+```
+
+The resulting `BUILD_INPUT_REQUIRED`, `REVIEW_REQUIRED`, or V8 refresh status
+identifies the documented continuation path. No conversation history is a
+release input; this repository, the manifest, the exact source/artefact paths,
+and `evidence/android/VERSION/` are sufficient to resume.
+
 The state flow is:
 
 ```text
